@@ -1,0 +1,22 @@
+'  Biblioteca Math inclui recursos de trigonomitria (Seno, Cosseno e Tangente) para matematica de ponto fixo
+'  Multiplicação e Divisao de Numero inteiros de 32Bits (coisa que o MC68000 não faz nativamente)
+'  Alem de Calculos de exponencial
+
+function sen(byval _angle__ as integer) as signed fixed
+
+return 0
+end function
+
+function cos(byval __angle__ as integer) as signed fixed
+
+return 0
+end function
+
+function tan(byval __angle__ as integer) as signed fixed
+
+return 0
+end function
+
+table_sin_fixed__:
+table_cos_fixed__:
+table_tan_fixed__:

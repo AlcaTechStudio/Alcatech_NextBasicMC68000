@@ -1,0 +1,24 @@
+dim __dma_queue_lenght__ as integer
+
+'Aloca memoria para armazenar os comandos DMA
+sub dma_Queue_init(byval __size__ as integer)
+ __dma_queue_lenght__ = 0
+
+
+end sub
+
+'Adiciona uma tranferencia a fila
+sub dma_add_Queue(byval __size__ as integer)
+
+end sub
+
+'Executa a tranferencia de DMA para todos os itens na lista 
+sub dma_Queue_Tranfer()
+
+end sub
+
+
+
+
+
+
