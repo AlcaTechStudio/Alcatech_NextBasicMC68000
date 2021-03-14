@@ -1,31 +1,37 @@
 align macro
      cnop 0,\1
      endm
-end_global_table equ $ff0626
+end_global_table equ $ff062e
 ;dim ram_pointer as long
 _global_ram_pointer equ $ff0000
+; Auto Declaracao variavel -> x=150
+_global_x equ $ff0004
+; Auto Declaracao variavel -> y=150
+_global_y equ $ff0006
+; Auto Declaracao variavel -> waitvbl = 0
+_global_waitvbl equ $ff0008
+; Auto Declaracao variavel ->  j = joypad6b_read(0)
+_global_j equ $ff000a
 ;dim sprite_table[80] as new sprite_shape 'Buffer para a Sprite Table na RAM
-_global_sprite_table equ $ff0004
+_global_sprite_table equ $ff000c
 ;dim buff_dma[3] as long ' Buffer na RAM que serve de construtor para os comandos do DMA
-_global_buff_dma equ $ff0284
+_global_buff_dma equ $ff028c
 ;dim H_scroll_buff[448] as integer ' Buffer para a  scroll table
-_global_H_scroll_buff equ $ff0290
+_global_H_scroll_buff equ $ff0298
 ;dim planes_addr[3] as integer '0=0 1=1 2=Plane_Win
-_global_planes_addr equ $ff0610
+_global_planes_addr equ $ff0618
 ;dim sprite_table_addr as integer
-_global_sprite_table_addr equ $ff0616
+_global_sprite_table_addr equ $ff061e
 ;dim scroll_table_addr as integer
-_global_scroll_table_addr equ $ff0618
+_global_scroll_table_addr equ $ff0620
 ;dim vdp_conf_table_addr as long
-_global_vdp_conf_table_addr equ $ff061a
-;dim _print_cursor as integer
-_global__print_cursor equ $ff061e
-;dim _print_plane  as integer
-_global__print_plane equ $ff0620
-;dim _print_pallet as integer
-_global__print_pallet equ $ff0622
+_global_vdp_conf_table_addr equ $ff0622
 ;dim __dma_queue_lenght__ as integer
-_global___dma_queue_lenght__ equ $ff0624
+_global___dma_queue_lenght__ equ $ff0626
+;dim __dma_queue_max_lenght__ as integer
+_global___dma_queue_max_lenght__ equ $ff0628
+;dim __DMA_queue_buff_addr__ as long
+_global___DMA_queue_buff_addr__ equ $ff062a
 
 ;------------------------
 ;  Header Vector Table  -
@@ -72,20 +78,196 @@ _global___dma_queue_lenght__ equ $ff0624
     ;std_init()   'Inicializa o VDP
     bsr std_init
 
-    ;print_init() 'Carrega a fonte para a VRAM
-    bsr print_init
+    ;dma_Queue_init(10)
+    move.w #10,-(a7)
+    bsr dma_Queue_init
+    addq #2,a7
 
-    ;print("  Por enquanto ta tudo tranquilo  o.O  ")
-    move.l #const_string_0_,-(a7)
-    bsr print
-    addq #4,a7
+    ;dma_CRAM_add_Queue(addressof(setas_cores),16,0) 'Carrega 16 cores na paleta Zero
+    move.l #0,-(a7)
+    move.w #16,-(a7)
+    move.l #setas_cores,-(a7)
+    bsr dma_CRAM_add_Queue
+    lea 10(a7),a7
 
-    ;Do 'main
+    ;dma_add_Queue(addressof(setas_sprites),32,1)    'Carrega 32 TILES na posicao 1 da VRAM (nunca usar a posicao Zero!)
+    move.l #1,-(a7)
+    move.w #32,-(a7)
+    move.l #setas_sprites,-(a7)
+    bsr dma_add_Queue
+    lea 10(a7),a7
+
+    ;x=150
+    move.w #150,_global_x
+
+    ;y=150
+    move.w #150,_global_y
+
+    ;set_sprite_size(0,3,3)
+    move.w #3,-(a7)
+    move.w #3,-(a7)
+    move.w #0,-(a7)
+    bsr set_sprite_size
+    addq #6,a7
+
+    ;set_sprite_gfx(0,1,0)
+    move.w #0,-(a7)
+    move.w #1,-(a7)
+    move.w #0,-(a7)
+    bsr set_sprite_gfx
+    addq #6,a7
+
+    ;waitvbl = 0
+    move.w #0,_global_waitvbl
+
+    ;enable_global_int() 'Ativa interrupcoes globais
+    bsr enable_global_int
+
+    ;do
 lbl_do_1_start:
+
+    ; j = joypad6b_read(0)
+    move.w #0,-(a7)
+    bsr joypad6b_read
+    addq #2,a7
+    move.w d7,_global_j
+
+    ; if bit_test(j, 0) then
+    move.w _global_j,d0
+    btst #0,d0
+    sne d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_1
+    bra lbl_if_false_1
+lbl_if_true_1:
+
+    ;  y-=1
+    moveq #1,d0
+    sub.w d0,_global_y
+
+    ;  set_sprite_gfx(0,17,0)
+    move.w #0,-(a7)
+    move.w #17,-(a7)
+    move.w #0,-(a7)
+    bsr set_sprite_gfx
+    addq #6,a7
+    bra lbl_if_end_1
+lbl_if_false_1:
+
+    ;  elseif bit_test(j, 1) then
+    move.w _global_j,d0
+    btst #1,d0
+    sne d0
+    and.w #$01,d0
+    dbra d0,lbl_elseif_true_2
+    bra lbl_elseif_false_2
+lbl_elseif_true_2:
+
+    ;  y+=1
+    moveq #1,d0
+    add.w d0,_global_y
+
+    ;  set_sprite_gfx(0,17 OR &h1000,0)  
+    move.w #0,-(a7)
+    move.w #(17|$1000),-(a7)
+    move.w #0,-(a7)
+    bsr set_sprite_gfx
+    addq #6,a7
+    bra lbl_if_end_1
+lbl_elseif_false_2:
+lbl_if_end_1:
+
+    ; if bit_test(j, 2) then
+    move.w _global_j,d0
+    btst #2,d0
+    sne d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_3
+    bra lbl_if_false_3
+lbl_if_true_3:
+
+    ;  x-=1
+    moveq #1,d0
+    sub.w d0,_global_x
+
+    ;  set_sprite_gfx(0,1 OR &h800,0)  
+    move.w #0,-(a7)
+    move.w #(1|$800),-(a7)
+    move.w #0,-(a7)
+    bsr set_sprite_gfx
+    addq #6,a7
+    bra lbl_if_end_3
+lbl_if_false_3:
+
+    ;  elseif bit_test(j, 3) then
+    move.w _global_j,d0
+    btst #3,d0
+    sne d0
+    and.w #$01,d0
+    dbra d0,lbl_elseif_true_4
+    bra lbl_elseif_false_4
+lbl_elseif_true_4:
+
+    ;  x+=1
+    moveq #1,d0
+    add.w d0,_global_x
+
+    ;  set_sprite_gfx(0,1,0)
+    move.w #0,-(a7)
+    move.w #1,-(a7)
+    move.w #0,-(a7)
+    bsr set_sprite_gfx
+    addq #6,a7
+    bra lbl_if_end_3
+lbl_elseif_false_4:
+lbl_if_end_3:
+
+    ; set_sprite_position(0,x,y)
+    move.w _global_y,-(a7)
+    move.w _global_x,-(a7)
+    move.w #0,-(a7)
+    bsr set_sprite_position
+    addq #6,a7
+
+    ; update_sprite_table()
+    bsr update_sprite_table
+
+    ; waitvbl = 1
+    move.w #1,_global_waitvbl
+
+    ; while(waitvbl)_asm("nop")
+lbl_while_start_1:
+    tst.w _global_waitvbl
+    bne lbl_while_true_1
+    bra lbl_while_false_1
+lbl_while_true_1:
+
+    ; while(waitvbl)_asm("nop")
+    nop
+    bra lbl_while_start_1
+lbl_while_false_1:
     bra lbl_do_1_start
 lbl_do_1_end:
 
-    ;Loop ' Laco infinito
+    ;loop
+
+    ;sub isr_06_vector()
+isr_06_vector:
+    movem.l d0-d6/a0-a5,-(a7)
+
+    ;DMA_Queue_Transfer()  'execute Queue
+    bsr DMA_Queue_Transfer
+
+    ;update_sprite_table() 'Update sprite attribute table
+    bsr update_sprite_table
+
+    ;waitvbl=0
+    move.w #0,_global_waitvbl
+
+    movem.l (a7)+,d0-d6/a0-a5
+    rte
+
+    ;end sub
 
     ;sub std_init()  
 std_init:
@@ -1313,599 +1495,444 @@ _local_nframes set 8
 
     ;end sub
 
-    ;sub print_init()
-print_init:
-
-    ;load_tiles_DMA(addressof(font_lbl_prtn),256,0) ' Carrega a fonte na Vram
-    move.l #0,-(a7)
-    move.w #256,-(a7)
-    move.l #font_lbl_prtn,-(a7)
-    bsr load_tiles_DMA
-    lea 10(a7),a7
-
-    ;_print_cursor = 0
-    move.w #0,_global__print_cursor
-
-    ;_print_plane = 0
-    move.w #0,_global__print_plane
-
-    ;_print_pallet = 0
-    move.w #0,_global__print_pallet
-    rts
-
-    ;end sub
-
-    ;sub set_cursor_position(byval _print_cx_p as integer, byval _print_cy_p as integer)
-set_cursor_position:
-    link a6,#-0
-; byval _local__print_cx_p as word
-_local__print_cx_p set 8
-; byval _local__print_cy_p as word
-_local__print_cy_p set 10
-
-    ;_print_cursor = (_print_cx_p and 63) + ((_print_cy_p and 31) * 64) 
-    move.w (_local__print_cx_p,a6),d0
-    and.w #63,d0
-    move.w (_local__print_cy_p,a6),d1
-    and.w #31,d1
-    lsl.w #6,d1
-    add.w d1,d0
-    move.w d0,_global__print_cursor
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub set_text_plane(byval _print_plane_text as integer)
-set_text_plane:
-    link a6,#-0
-; byval _local__print_plane_text as word
-_local__print_plane_text set 8
-
-    ;_print_plane = _print_plane_text
-    move.w (_local__print_plane_text,a6),_global__print_plane
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub set_text_pal(byval _print_pal_set as integer)
-set_text_pal:
-    link a6,#-0
-; byval _local__print_pal_set as word
-_local__print_pal_set set 8
-
-    ;_print_pallet = _print_pal_set
-    move.w (_local__print_pal_set,a6),_global__print_pallet
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub print(byval _print_string as long)
-print:
-;  dim char as integer = peek(  _print_string as byte)
-_local_char set -2
+    ;sub dma_Queue_init(byval __size__ as integer)
+dma_Queue_init:
+; Auto Declaracao variavel ->  for loc_i = 0 to __size__
+_local_loc_i set -2
     link a6,#-2
-; byval _local__print_string as long
-_local__print_string set 8
-    move.l (_local__print_string,a6),a0
+; byval _local___size__ as word
+_local___size__ set 8
+
+    ; __dma_queue_lenght__ = 0
+    move.w #0,_global___dma_queue_lenght__
+
+    ; __dma_queue_max_lenght__ = __size__
+    move.w (_local___size__,a6),_global___dma_queue_max_lenght__
+
+    ; __DMA_queue_buff_addr__ = ram_pointer
+    move.l _global_ram_pointer,_global___DMA_queue_buff_addr__
+
+    ; ram_pointer += __size__ << 4
     moveq #0,d0
-    move.b (a0),d0
-    move.w d0,(_local_char,a6)
+    move.w (_local___size__,a6),d0
+    lsl.l #4,d0
+    add.l d0,_global_ram_pointer
 
-    ;  while(char<>0)
-lbl_while_start_1:
-    move.w (_local_char,a6),d0
-    tst.w d0
-    sne d0
-    and.w #$01,d0
-    dbra d0,lbl_while_true_1
-    bra lbl_while_false_1
-lbl_while_true_1:
-
-    ;  draw_tile(char OR _print_pallet, _print_cursor AND 63 , (_print_cursor / 64) ,_print_plane)
-    move.w _global__print_plane,-(a7)
-    move.w _global__print_cursor,d0
-    lsr.w #6,d0
-    move.w d0,-(a7)
-    move.w _global__print_cursor,d0
-    and.w #63,d0
-    move.w d0,-(a7)
-    move.w (_local_char,a6),d0
-    or.w _global__print_pallet,d0
-    move.w d0,-(a7)
-    bsr draw_tile
-    addq #8,a7
-
-    ;  _print_string +=1
-    moveq #1,d0
-    add.l d0,(_local__print_string,a6)
-
-    ;  _print_cursor +=1
-    moveq #1,d0
-    add.w d0,_global__print_cursor
-
-    ;  if _print_cursor > (64*32) then _print_cursor = 0
-    move.w _global__print_cursor,d0
-    cmp.w #(64*32),d0
-    shi d0
-    and.w #$01,d0
-    dbra d0,lbl_if_true_1
-    bra lbl_if_false_1
-lbl_if_true_1:
-
-    ;  if _print_cursor > (64*32) then _print_cursor = 0
-    move.w #0,_global__print_cursor
-lbl_if_false_1:
-
-    ;  char = peek(  _print_string as byte)
-    move.l (_local__print_string,a6),a0
+    ; for loc_i = 0 to __size__
     moveq #0,d0
-    move.b (a0),d0
-    move.w d0,(_local_char,a6)
-    bra lbl_while_start_1
+    move.w d0,(_local_loc_i,a6)
+lbl_for_4_start:
+    move.w (_local_loc_i,a6),d0
+    cmp.w (_local___size__,a6),d0
+    beq lbl_for_4_end
 
-    ;  end while
-lbl_while_false_1:
+    ;  poke(&h94009300 as long, (__DMA_queue_buff_addr__ + (loc_i <<4))   )
+    moveq #0,d0
+    move.w (_local_loc_i,a6),d0
+    lsl.l #4,d0
+    add.l _global___DMA_queue_buff_addr__,d0
+    move.l d0,a0
+    move.l #$94009300,(a0)
+
+    ;  poke(&h97009600 as long, (__DMA_queue_buff_addr__ + (loc_i <<4)+4) )
+    moveq #0,d0
+    move.w (_local_loc_i,a6),d0
+    lsl.l #4,d0
+    addq #4,d0
+    add.l _global___DMA_queue_buff_addr__,d0
+    move.l d0,a0
+    move.l #$97009600,(a0)
+
+    ;  poke(&h95008114 as long, (__DMA_queue_buff_addr__ + (loc_i <<4)+8) )
+    moveq #0,d0
+    move.w (_local_loc_i,a6),d0
+    lsl.l #4,d0
+    addq #8,d0
+    add.l _global___DMA_queue_buff_addr__,d0
+    move.l d0,a0
+    move.l #$95008114,(a0)
+    moveq #1,d0
+    add.w d0,(_local_loc_i,a6)
+    bra lbl_for_4_start
+
+    ; next
+lbl_for_4_end:
     unlk a6 
     rts
 
     ;end sub
 
-    ;sub println(byval _print_string as long)
-println:
-;  dim char as integer = peek(  _print_string as byte)
-_local_char set -2
-    link a6,#-2
-; byval _local__print_string as long
-_local__print_string set 8
-    move.l (_local__print_string,a6),a0
-    moveq #0,d0
-    move.b (a0),d0
-    move.w d0,(_local_char,a6)
+    ;sub dma_add_Queue(byval endereco_tiles as long, byval N_tiles as integer, byval end_dest as long)
+dma_add_Queue:
+    link a6,#-0
+; byval _local_endereco_tiles as long
+_local_endereco_tiles set 8
+; byval _local_N_tiles as word
+_local_N_tiles set 12
+; byval _local_end_dest as long
+_local_end_dest set 14
 
-    ;  while(char<>0)
-lbl_while_start_2:
-    move.w (_local_char,a6),d0
-    tst.w d0
-    sne d0
-    and.w #$01,d0
-    dbra d0,lbl_while_true_2
-    bra lbl_while_false_2
-lbl_while_true_2:
-
-    ;  draw_tile(char OR _print_pallet, _print_cursor AND 63 , (_print_cursor / 64) ,_print_plane)
-    move.w _global__print_plane,-(a7)
-    move.w _global__print_cursor,d0
-    lsr.w #6,d0
-    move.w d0,-(a7)
-    move.w _global__print_cursor,d0
-    and.w #63,d0
-    move.w d0,-(a7)
-    move.w (_local_char,a6),d0
-    or.w _global__print_pallet,d0
-    move.w d0,-(a7)
-    bsr draw_tile
-    addq #8,a7
-
-    ;  _print_string +=1
-    moveq #1,d0
-    add.l d0,(_local__print_string,a6)
-
-    ;  _print_cursor +=1
-    moveq #1,d0
-    add.w d0,_global__print_cursor
-
-    ;  if _print_cursor > (64*32) then _print_cursor = 0
-    move.w _global__print_cursor,d0
-    cmp.w #(64*32),d0
-    shi d0
-    and.w #$01,d0
-    dbra d0,lbl_if_true_2
-    bra lbl_if_false_2
-lbl_if_true_2:
-
-    ;  if _print_cursor > (64*32) then _print_cursor = 0
-    move.w #0,_global__print_cursor
-lbl_if_false_2:
-
-    ;  char = peek(  _print_string as byte)
-    move.l (_local__print_string,a6),a0
-    moveq #0,d0
-    move.b (a0),d0
-    move.w d0,(_local_char,a6)
-    bra lbl_while_start_2
-
-    ;  end while
-lbl_while_false_2:
-
-    ;  _print_cursor += 64 - (_print_cursor and 63) 
-    move.w _global__print_cursor,d1
-    and.w #63,d1
-    moveq #64,d0
-    sub.w d1,d0
-    add.w d0,_global__print_cursor
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub print_var(byval _print_val as integer)
-print_var:
-; dim flag_prnt as integer = 0
-_local_flag_prnt set -2
-; dim div_f as integer = 10000
-_local_div_f set -4
-; dim pars_ as integer
-_local_pars_ set -6
-    link a6,#-6
-; byval _local__print_val as word
-_local__print_val set 8
-
-    ; if _print_val = 0 then
-    move.w (_local__print_val,a6),d0
-    tst.w d0
-    seq d0
-    and.w #$01,d0
-    dbra d0,lbl_if_true_3
-    bra lbl_if_false_3
-lbl_if_true_3:
-
-    ; print("0") : return
-    move.l #const_string_1_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ; print("0") : return
-    unlk a6 
-    rts
-    bra lbl_if_end_3
-lbl_if_false_3:
-lbl_if_end_3:
-    move.w #0,(_local_flag_prnt,a6)
-    move.w #10000,(_local_div_f,a6)
-
-    ; while(div_f)
-lbl_while_start_3:
-    tst.w (_local_div_f,a6)
-    bne lbl_while_true_3
-    bra lbl_while_false_3
-lbl_while_true_3:
-
-    ; pars_ = _print_val / div_f
-    moveq #0,d0
-    move.w (_local__print_val,a6),d0
-    divu (_local_div_f,a6),d0
-    move.w d0,(_local_pars_,a6)
-
-    ; if pars_ OR flag_prnt then
-    move.w (_local_pars_,a6),d0
-    or.w (_local_flag_prnt,a6),d0
-    dbra d0,lbl_if_true_4
-    bra lbl_if_false_4
-lbl_if_true_4:
-
-    ; flag_prnt = true
-    move.w #1,(_local_flag_prnt,a6)
-
-    ; draw_tile(((pars_+ &H30) OR _print_pallet), _print_cursor AND 63 , (_print_cursor / 64) ,_print_plane)
-    move.w _global__print_plane,-(a7)
-    move.w _global__print_cursor,d0
-    lsr.w #6,d0
-    move.w d0,-(a7)
-    move.w _global__print_cursor,d0
-    and.w #63,d0
-    move.w d0,-(a7)
-    move.w (_local_pars_,a6),d0
-    add.w #$30,d0
-    or.w _global__print_pallet,d0
-    move.w d0,-(a7)
-    bsr draw_tile
-    addq #8,a7
-
-    ; _print_cursor +=1
-    moveq #1,d0
-    add.w d0,_global__print_cursor
-
-    ; if _print_cursor > (64*32) then _print_cursor = 0
-    move.w _global__print_cursor,d0
-    cmp.w #(64*32),d0
+    ; if ((__dma_queue_lenght__+2) > __dma_queue_max_lenght__) then return 'Buffer Overflow
+    move.w _global___dma_queue_lenght__,d0
+    addq #2,d0
+    cmp.w _global___dma_queue_max_lenght__,d0
     shi d0
     and.w #$01,d0
     dbra d0,lbl_if_true_5
     bra lbl_if_false_5
 lbl_if_true_5:
 
-    ; if _print_cursor > (64*32) then _print_cursor = 0
-    move.w #0,_global__print_cursor
+    ; if ((__dma_queue_lenght__+2) > __dma_queue_max_lenght__) then return 'Buffer Overflow
+    unlk a6 
+    rts
 lbl_if_false_5:
-    bra lbl_if_end_4
-lbl_if_false_4:
-lbl_if_end_4:
 
-    ; _print_val -= pars_ * div_f
-    move.w (_local_pars_,a6),d0
-    mulu (_local_div_f,a6),d0
-    sub.w d0,(_local__print_val,a6)
-
-    ; div_f = div_f / 10
+    ; push((__DMA_queue_buff_addr__ + (__dma_queue_lenght__ <<4))+10 as long, "A0")
     moveq #0,d0
-    move.w (_local_div_f,a6),d0
-    divu #10,d0
-    move.w d0,(_local_div_f,a6)
-    bra lbl_while_start_3
+    move.w _global___dma_queue_lenght__,d0
+    lsl.l #4,d0
+    add.l _global___DMA_queue_buff_addr__,d0
+    add.l #10,d0
+    move.l d0,A0
 
-    ; wend
-lbl_while_false_3:
+    ; push(endereco_tiles as long,"D0")
+    move.l (_local_endereco_tiles,a6),D0
+
+    ; push(N_tiles as word,"D1")
+    move.w (_local_N_tiles,a6),D1
+
+    ; push(end_dest as long,"D2")
+    move.l (_local_end_dest,a6),D2
+
+    ;_asm_block #__
+     lsr.l #1,D0   ;Endereco   fonte  pra Words
+ lsl.w #4,D1   ;No Tiles copiados pra Words
+ lsl.w #5,D2   ;Ender. dest.Tiles pra Bytes
+ moveq #0,D3
+ sub.w D1,D3
+ sub.w D0,D3
+ bcs.s @ex_2p_DMAQ
+ bra @ex_DMAQ
+ @ex_DMAQ:
+ bsr @executa_DMAQ
+ bra @fimQ
+ @ex_2p_DMAQ:
+ add.w D1,D3    
+ movem.w D1-D2,-(A7)
+ move.w D3,D1     
+ bsr @executa_DMAQ
+ movem.w (A7)+,D1-D2 
+ sub.w D3,D1   
+ add.l D3,D0   
+ add.w D3,D3   
+ add.w D3,D2   
+ bsr.s @executa_DMAQ
+ bra @fimQ
+ @executa_DMAQ:
+ movep.l D0,-7(A0)
+ movep.w D1,-9(A0)	
+ lsl.l #2,D2
+ lsr.w #2,D2
+ swap D2
+ and.w #$3,D2
+ or.l #$40000080,D2
+ move.w      D2,2(A0)
+ swap D2
+ move.w      D2,(A0)
+ adda       #16,A0
+ moveq       #1,D4
+ add.w     D4,_global___dma_queue_lenght__
+ 
+ ;move.l -10(A0),$C00004
+ ;move.l  -6(A0),$C00004
+ ;move.w  -2(A0),$C00004
+ ;move.l      D2,$C00004
+ rts
+ @fimQ: 
+
+
+    ;__# _asm_block_end
     unlk a6 
     rts
 
     ;end sub
 
-    ;sub print_signed(byval _print_val as signed integer)
-print_signed:
+    ;sub dma_CRAM_add_Queue(byval endereco_pal as long, byval N_cores as integer, byval paleta_dest as long)
+dma_CRAM_add_Queue:
     link a6,#-0
-; byval _local__print_val as word
-_local__print_val set 8
+; byval _local_endereco_pal as long
+_local_endereco_pal set 8
+; byval _local_N_cores as word
+_local_N_cores set 12
+; byval _local_paleta_dest as long
+_local_paleta_dest set 14
 
-    ; if _unsigned(_print_val > 32768) then 'Negativo
-    move.w (_local__print_val,a6),d0
-    cmp.w #32768,d0
+    ; if ((__dma_queue_lenght__+2) > __dma_queue_max_lenght__) then return 'Buffer Overflow
+    move.w _global___dma_queue_lenght__,d0
+    addq #2,d0
+    cmp.w _global___dma_queue_max_lenght__,d0
     shi d0
     and.w #$01,d0
     dbra d0,lbl_if_true_6
     bra lbl_if_false_6
 lbl_if_true_6:
 
-    ; print("-")
-    move.l #const_string_2_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ; print_var( (~_print_val) +1 )
-    move.w (_local__print_val,a6),d0
-    not.w d0
-    addq #1,d0
-    move.w d0,-(a7)
-    bsr print_var
-    addq #2,a7
-    bra lbl_if_end_6
+    ; if ((__dma_queue_lenght__+2) > __dma_queue_max_lenght__) then return 'Buffer Overflow
+    unlk a6 
+    rts
 lbl_if_false_6:
 
-    ; else 'Positivo
+    ; push((__DMA_queue_buff_addr__ + (__dma_queue_lenght__ <<4))+10 as long, "A0")
+    moveq #0,d0
+    move.w _global___dma_queue_lenght__,d0
+    lsl.l #4,d0
+    add.l _global___DMA_queue_buff_addr__,d0
+    add.l #10,d0
+    move.l d0,A0
 
-    ; print("+")
-    move.l #const_string_3_,-(a7)
-    bsr print
-    addq #4,a7
+    ; push(endereco_pal as long, "D0")
+    move.l (_local_endereco_pal,a6),D0
 
-    ; print_var( _print_val )
-    move.w (_local__print_val,a6),-(a7)
-    bsr print_var
-    addq #2,a7
-lbl_if_end_6:
+    ; push(N_cores as word, "D1")
+    move.w (_local_N_cores,a6),D1
+
+    ; push(paleta_dest as long, "D2")
+    move.l (_local_paleta_dest,a6),D2
+
+    ;_asm_block #__
+     lsr.l #1,D0  
+ lsl.w #5,D2  
+ moveq #0,D3
+ sub.w D1,D3
+ sub.w D0,D3
+ bcs.s @ex_2p_DMAQ_cram
+ bra @ex_DMAQ_cram
+ @ex_DMAQ_cram:
+ bsr @executa_DMAQ_cram
+ bra @fim_cramQ
+ @ex_2p_DMAQ_cram:
+ add.w D1,D3      
+ movem.w D1-D2,-(A7)
+ move.w D3,D1     
+ bsr @executa_DMAQ_cram
+ movem.w (A7)+,D1-D2 
+ sub.w D3,D1   
+ add.l D3,D0   
+ add.w D3,D3   
+ add.w D3,D2   
+ bsr.s @executa_DMAQ_cram
+ bra @fim_cramQ
+ @executa_DMAQ_cram:
+ movep.l D0,-7(A0)
+ movep.w D1,-9(A0)	
+ swap D2
+ or.l #$C0000080,D2
+ move.w      D2,2(A0)
+ swap D2
+ move.w      D2,(A0)
+ adda       #16,A0
+ moveq       #1,D4
+ add.w     D4,_global___dma_queue_lenght__
+ rts
+ @fim_cramQ: 
+
+
+    ;__# _asm_block_end
     unlk a6 
     rts
 
     ;end sub
 
-    ;sub print_hex(byval _print_val as long)
-print_hex:
-;  dim _parse_bf[9] as byte ' String local que vai armazenar o valor do Hex convertido para string
-_local__parse_bf set -10
-; Auto Declaracao variavel ->   for k = 0 to 8
-_local_k set -12
-    link a6,#-12
-; byval _local__print_val as long
-_local__print_val set 8
+    ;sub dma_CRAM_add_Queue_128ksafe(byval endereco_pal as long, byval N_cores as integer, byval paleta_dest as long)
+dma_CRAM_add_Queue_128ksafe:
+    link a6,#-0
+; byval _local_endereco_pal as long
+_local_endereco_pal set 8
+; byval _local_N_cores as word
+_local_N_cores set 12
+; byval _local_paleta_dest as long
+_local_paleta_dest set 14
 
-    ;  for k = 0 to 8
-    moveq #0,d0
-    move.w d0,(_local_k,a6)
-lbl_for_4_start:
-    move.w (_local_k,a6),d0
-    cmp.w #8,d0
-    beq lbl_for_4_end
-
-    ;  _parse_bf[7-k] = _long( (_print_val AND (&hF << k*4))>>( k*4) )
-    moveq #7,d0
-    sub.w (_local_k,a6),d0
-    add.w #_local__parse_bf,d0
-    moveq #0,d2
-    move.w (_local_k,a6),d2
-    add.l d2,d2
-    add.l d2,d2
-    moveq #$F,d1
-    lsl.l d2,d1
-    and.l (_local__print_val,a6),d1
-    moveq #0,d2
-    move.w (_local_k,a6),d2
-    add.l d2,d2
-    add.l d2,d2
-    lsr.l d2,d1
-    move.b d1,0(a6,d0.w)
-
-    ;  if _byte(_parse_bf[7-k] > 9) then _parse_bf[7-k] += _char("7") else _parse_bf[7-k] += _char("0") 
-    moveq #7,d0
-    sub.w (_local_k,a6),d0
-    add.w #_local__parse_bf,d0
-    move.b 0(a6,d0.w),d1
-    cmp.b #9,d1
-    shi d1
-    and.b #$01,d1
-    tst.b d1
-    bne lbl_if_true_7
+    ; if ((__dma_queue_lenght__+1) > __dma_queue_max_lenght__) then return 'Buffer Overflow
+    move.w _global___dma_queue_lenght__,d0
+    addq #1,d0
+    cmp.w _global___dma_queue_max_lenght__,d0
+    shi d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_7
     bra lbl_if_false_7
 lbl_if_true_7:
 
-    ;  if _byte(_parse_bf[7-k] > 9) then _parse_bf[7-k] += _char("7") else _parse_bf[7-k] += _char("0") 
-    moveq #7,d0
-    sub.w (_local_k,a6),d0
-    add.w #_local__parse_bf,d0
-    move.b #'7',d1
-    add.b d1,0(a6,d0.w)
-    bra lbl_if_end_7
+    ; if ((__dma_queue_lenght__+1) > __dma_queue_max_lenght__) then return 'Buffer Overflow
+    unlk a6 
+    rts
 lbl_if_false_7:
 
-    ;  if _byte(_parse_bf[7-k] > 9) then _parse_bf[7-k] += _char("7") else _parse_bf[7-k] += _char("0") 
-    moveq #7,d0
-    sub.w (_local_k,a6),d0
-    add.w #_local__parse_bf,d0
-    move.b #'0',d1
-    add.b d1,0(a6,d0.w)
-lbl_if_end_7:
+    ; push((__DMA_queue_buff_addr__ + (__dma_queue_lenght__ <<4))+10 as long, "A0")
+    moveq #0,d0
+    move.w _global___dma_queue_lenght__,d0
+    lsl.l #4,d0
+    add.l _global___DMA_queue_buff_addr__,d0
+    add.l #10,d0
+    move.l d0,A0
+
+    ; push(endereco_pal as long, "D0")
+    move.l (_local_endereco_pal,a6),D0
+
+    ; push(N_cores as word, "D1")
+    move.w (_local_N_cores,a6),D1
+
+    ; push(paleta_dest as long, "D2")
+    move.l (_local_paleta_dest,a6),D2
+
+    ;_asm_block #__
+     lsr.l #1,D0  
+ lsl.w #5,D2   
+ movep.l D0,-7(A0)
+ movep.w D1,-9(A0)	
+ swap D2
+ or.l #$C0000080,D2
+ move.w      D2,2(A0)
+ swap D2
+ move.w      D2,(A0)
+
+
+    ;__# _asm_block_end
+
+    ; __dma_queue_lenght__+=1
     moveq #1,d0
-    add.w d0,(_local_k,a6)
-    bra lbl_for_4_start
-
-    ;  next k 
-lbl_for_4_end:
-
-    ;  _parse_bf[8] = 0 'Caractere Null - Fim de string
-    move.b #0,(_local__parse_bf+(8<<0),a6)
-
-    ;  print("0x")
-    move.l #const_string_4_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ;  print(addressof(_parse_bf))
-    move.l a6,d0
-    add.l #_local__parse_bf,d0
-    move.l d0,-(a7)
-    bsr print
-    addq #4,a7
+    add.w d0,_global___dma_queue_lenght__
     unlk a6 
     rts
 
     ;end sub
 
-    ;sub print_fixed(byval _print_val as fixed)
-print_fixed:
+    ;sub dma_add_Queue_128ksafe(byval __tiles_addr__ as long, byval __N_tiles__ as integer, byval __addr_dest__ as long)
+dma_add_Queue_128ksafe:
     link a6,#-0
-; byval _local__print_val as word
-_local__print_val set 8
+; byval _local___tiles_addr__ as long
+_local___tiles_addr__ set 8
+; byval _local___N_tiles__ as word
+_local___N_tiles__ set 12
+; byval _local___addr_dest__ as long
+_local___addr_dest__ set 14
 
-    ;  print_var(_print_val)
-    move.w (_local__print_val,a6),d0
-    lsr.w #7,d0
-    move.w d0,-(a7)
-    bsr print_var
-    addq #2,a7
-
-    ;  print(".")
-    move.l #const_string_5_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ;  _print_val = ( (_print_val and &H7F)<<7)  * 0.78125
-    move.w (_local__print_val,a6),d0
-    and.w #$7F,d0
-    lsl.w #7,d0
-    mulu #(100),d0
-    lsr.l #7,d0
-    move.w d0,(_local__print_val,a6)
-
-    ;  if _fixed(_print_val < 10) then print("0") 
-    move.w (_local__print_val,a6),d0
-    cmp.w #(1280),d0
-    scs d0
+    ; if ((__dma_queue_lenght__+1) > __dma_queue_max_lenght__) then return 'Buffer Overflow
+    move.w _global___dma_queue_lenght__,d0
+    addq #1,d0
+    cmp.w _global___dma_queue_max_lenght__,d0
+    shi d0
     and.w #$01,d0
     dbra d0,lbl_if_true_8
     bra lbl_if_false_8
 lbl_if_true_8:
 
-    ;  if _fixed(_print_val < 10) then print("0") 
-    move.l #const_string_6_,-(a7)
-    bsr print
-    addq #4,a7
+    ; if ((__dma_queue_lenght__+1) > __dma_queue_max_lenght__) then return 'Buffer Overflow
+    unlk a6 
+    rts
 lbl_if_false_8:
 
-    ;  print_var( _print_val)  
-    move.w (_local__print_val,a6),d0
-    lsr.w #7,d0
-    move.w d0,-(a7)
-    bsr print_var
-    addq #2,a7
+    ; push((__DMA_queue_buff_addr__ + (__dma_queue_lenght__ <<4))+10 as long, "A0")
+    moveq #0,d0
+    move.w _global___dma_queue_lenght__,d0
+    lsl.l #4,d0
+    add.l _global___DMA_queue_buff_addr__,d0
+    add.l #10,d0
+    move.l d0,A0
+
+    ; push(__tiles_addr__ as long,"D0")
+    move.l (_local___tiles_addr__,a6),D0
+
+    ; push(__N_tiles__ as word,"D1")
+    move.w (_local___N_tiles__,a6),D1
+
+    ; push(__addr_dest__ as long,"D2")
+    move.l (_local___addr_dest__,a6),D2
+
+    ;_asm_block #__
+     lsr.l #1,D0   
+ lsl.w #4,D1   
+ lsl.w #5,D2    
+ movep.l D0,-7(A0)
+ movep.w D1,-9(A0)
+ lsl.l #2,D2
+ lsr.w #2,D2
+ swap D2
+ and.w #$3,D2
+ or.l #$40000080,D2
+ move.w      D2,2(A0)
+ swap D2
+ move.w      D2,(A0)
+
+
+    ;__# _asm_block_end
+
+    ; __dma_queue_lenght__+=1
+    moveq #1,d0
+    add.w d0,_global___dma_queue_lenght__
     unlk a6 
     rts
 
     ;end sub
 
-    ;sub print_signed_fixed(byval _print_val as fixed)  
-print_signed_fixed:
-    link a6,#-0
-; byval _local__print_val as word
-_local__print_val set 8
+    ;sub DMA_Queue_Transfer()
+DMA_Queue_Transfer:
+; Auto Declaracao variavel ->  for __i__ = 0 to __dma_queue_lenght__
+_local___i__ set -2
+    link a6,#-2
 
-    ;  if _unsigned(_print_val > 255) then 'Negativo
-    move.w (_local__print_val,a6),d0
-    lsr.w #7,d0
-    cmp.w #255,d0
-    shi d0
+    ; if __dma_queue_lenght__ = 0 then return
+    move.w _global___dma_queue_lenght__,d0
+    tst.w d0
+    seq d0
     and.w #$01,d0
     dbra d0,lbl_if_true_9
     bra lbl_if_false_9
 lbl_if_true_9:
 
-    ;  print("-")
-    move.l #const_string_7_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ;  print_fixed( (~(_print_val-0.01)) )
-    move.w (_local__print_val,a6),d0
-    sub.w #(1),d0
-    not.w d0
-    move.w d0,-(a7)
-    bsr print_fixed
-    addq #2,a7
-    bra lbl_if_end_9
+    ; if __dma_queue_lenght__ = 0 then return
+    unlk a6 
+    rts
 lbl_if_false_9:
 
-    ;  else 'Positivo
+    ; push(__DMA_queue_buff_addr__  as long, "A1")
+    move.l _global___DMA_queue_buff_addr__,A1
 
-    ;  print("+")
-    move.l #const_string_8_,-(a7)
-    bsr print
-    addq #4,a7
+    ; push( &hC00004 as long, "A2")
+    lea $C00004,A2
 
-    ;  print_fixed( _print_val )
-    move.w (_local__print_val,a6),-(a7)
-    bsr print_fixed
-    addq #2,a7
-lbl_if_end_9:
-    unlk a6 
-    rts
+    ; for __i__ = 0 to __dma_queue_lenght__
+    moveq #0,d0
+    move.w d0,(_local___i__,a6)
+lbl_for_5_start:
+    move.w (_local___i__,a6),d0
+    cmp.w _global___dma_queue_lenght__,d0
+    beq lbl_for_5_end
 
-    ; end sub
+    ; _asm("move.l (A1)+,(A2)") ' Tamanho dos dados		
+    move.l (A1)+,(A2)
 
-    ;sub dma_Queue_init(byval __size__ as integer)
-dma_Queue_init:
-    link a6,#-0
-; byval _local___size__ as word
-_local___size__ set 8
+    ; _asm("move.l (A1)+,(A2)") ' Endereco Fonte Up bytes
+    move.l (A1)+,(A2)
 
-    ; __dma_queue_lenght__ = 0
+    ; _asm("move.l (A1)+,(A2)") ' Endereco fonte low byte + endereco de Destino High Byte
+    move.l (A1)+,(A2)
+
+    ; _asm("move.w (A1)+,(A2)") ' trigger do DMA
+    move.w (A1)+,(A2)
+
+    ; _asm("addq      #2,A1")   ' alinha o vetor -> long data wide
+    addq      #2,A1
+    moveq #1,d0
+    add.w d0,(_local___i__,a6)
+    bra lbl_for_5_start
+
+    ; next
+lbl_for_5_end:
+
+    ; __dma_queue_lenght__ = 0 'Clear Queue 
     move.w #0,_global___dma_queue_lenght__
     unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub dma_add_Queue(byval __size__ as integer)
-dma_add_Queue:
-    link a6,#-0
-; byval _local___size__ as word
-_local___size__ set 8
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub dma_Queue_Tranfer()
-dma_Queue_Tranfer:
     rts
 
     ;end sub
@@ -1952,9 +1979,6 @@ table_sin_fixed__:
 table_cos_fixed__:
 table_tan_fixed__:
     even
-const_string_0_:
-    dc.b "  Por enquanto ta tudo tranquilo  o.O  ",0
-    even
 VDP_std_Reg_init:
     dc.b $04
     dc.b $74
@@ -1977,34 +2001,267 @@ VDP_std_Reg_init:
     dc.b $00
     dc.b $00
     even
-const_string_1_:
-    dc.b "0",0
+setas_cores:
+    dc.w $0000,$020E,$04A2,$0C42,$0000,$0000,$0000,$0000
+    dc.w $0000,$0000,$0000,$0000,$0000,$0000,$0000,$0000
     even
-const_string_2_:
-    dc.b "-",0
-    even
-const_string_3_:
-    dc.b "+",0
-    even
-const_string_4_:
-    dc.b "0x",0
-    even
-const_string_5_:
-    dc.b ".",0
-    even
-const_string_6_:
-    dc.b "0",0
-    even
-const_string_7_:
-    dc.b "-",0
-    even
-const_string_8_:
-    dc.b "+",0
-
-    ;imports "\system\font_msxBR_8x8.bin , -f , -e"
-    even
-font_lbl_prtn:
-    incbin "C:\workbench\Alcatech_NextBasic_Bin\compiler\system\font_msxbr_8x8.bin " 
+setas_sprites:
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11122222
+    dc.l $11122222
+    dc.l $11122222
+    dc.l $11122233
+    dc.l $11122233
+    dc.l $11122233
+    dc.l $11122233
+    dc.l $11122233
+    dc.l $11122233
+    dc.l $11122233
+    dc.l $11122233
+    dc.l $11122233
+    dc.l $11122222
+    dc.l $11122222
+    dc.l $11122222
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111112
+    dc.l $11111112
+    dc.l $11111112
+    dc.l $11111112
+    dc.l $11111112
+    dc.l $11111112
+    dc.l $22222222
+    dc.l $22222222
+    dc.l $22222222
+    dc.l $33333333
+    dc.l $33333333
+    dc.l $33333333
+    dc.l $33333333
+    dc.l $33333333
+    dc.l $33333333
+    dc.l $33333333
+    dc.l $33333333
+    dc.l $33333333
+    dc.l $22222222
+    dc.l $22222222
+    dc.l $22222222
+    dc.l $11111112
+    dc.l $11111112
+    dc.l $11111112
+    dc.l $11111112
+    dc.l $11111112
+    dc.l $11111112
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $22111111
+    dc.l $22211111
+    dc.l $22221111
+    dc.l $22222111
+    dc.l $22222211
+    dc.l $22222221
+    dc.l $22322222
+    dc.l $22332222
+    dc.l $22333222
+    dc.l $33333322
+    dc.l $33333332
+    dc.l $33333333
+    dc.l $33333333
+    dc.l $33333333
+    dc.l $33333333
+    dc.l $33333333
+    dc.l $33333332
+    dc.l $33333322
+    dc.l $22333222
+    dc.l $22332222
+    dc.l $22322222
+    dc.l $22222221
+    dc.l $22222211
+    dc.l $22222111
+    dc.l $22221111
+    dc.l $22211111
+    dc.l $22111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $21111111
+    dc.l $22111111
+    dc.l $22211111
+    dc.l $22221111
+    dc.l $22222111
+    dc.l $32222211
+    dc.l $33222211
+    dc.l $32222211
+    dc.l $22222111
+    dc.l $22221111
+    dc.l $22211111
+    dc.l $22111111
+    dc.l $21111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111112
+    dc.l $11111122
+    dc.l $11111222
+    dc.l $11112222
+    dc.l $11122222
+    dc.l $11122222
+    dc.l $11122222
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111112
+    dc.l $11111122
+    dc.l $11111222
+    dc.l $11112222
+    dc.l $11122222
+    dc.l $11222223
+    dc.l $12222233
+    dc.l $22222333
+    dc.l $22223333
+    dc.l $22233333
+    dc.l $22333333
+    dc.l $23333333
+    dc.l $22223333
+    dc.l $22223333
+    dc.l $22223333
+    dc.l $12223333
+    dc.l $12223333
+    dc.l $12223333
+    dc.l $12223333
+    dc.l $12223333
+    dc.l $12223333
+    dc.l $12223333
+    dc.l $12223333
+    dc.l $12223333
+    dc.l $12222222
+    dc.l $12222222
+    dc.l $12222222
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $22111111
+    dc.l $22211111
+    dc.l $22221111
+    dc.l $22222111
+    dc.l $32222211
+    dc.l $33222221
+    dc.l $33322222
+    dc.l $33332222
+    dc.l $33333222
+    dc.l $33333322
+    dc.l $33333332
+    dc.l $33333333
+    dc.l $33333222
+    dc.l $33333222
+    dc.l $33333222
+    dc.l $33333222
+    dc.l $33333222
+    dc.l $33333222
+    dc.l $33333222
+    dc.l $33333222
+    dc.l $33333222
+    dc.l $33333222
+    dc.l $33333222
+    dc.l $33333222
+    dc.l $22222222
+    dc.l $22222222
+    dc.l $22222222
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $21111111
+    dc.l $22111111
+    dc.l $22211111
+    dc.l $22221111
+    dc.l $22222111
+    dc.l $22222211
+    dc.l $22222211
+    dc.l $22222211
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
+    dc.l $11111111
     even    
 isr_01_vector:
     rte
@@ -2015,8 +2272,6 @@ isr_03_vector:
 isr_04_vector:
     rte
 isr_05_vector:
-    rte
-isr_06_vector:
     rte
 isr_07_vector:
     rte
