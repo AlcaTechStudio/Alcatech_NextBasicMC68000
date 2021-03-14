@@ -2,50 +2,65 @@ imports "\system\genesis_header.asm" ' Header de uma ROM de mega Drive Padrão (
 
 
 std_init()   'Inicializa o VDP
-'print_init() 'Carrega a fonte para a VRAM
+print_init() 'Carrega a fonte para a VRAM
 
-'print("  Por enquanto ta tudo tranquilo  o.O  ")
+print("  Por enquanto ta tudo tranquilo  o.O  ")
 
 dma_Queue_init(10)
 
-dma_CRAM_add_Queue(addressof(setas_cores),16,0) 'Carrega 16 cores na paleta Zero
-dma_add_Queue(addressof(setas_sprites),32,1)    'Carrega 32 TILES na posição 1 da VRAM (nunca usar a posição Zero!)
+'dma_CRAM_add_Queue(addressof(setas_cores),16,0) 'Carrega 16 cores na paleta Zero
+dma_add_Queue(addressof(setas_sprites),32,256)    'Carrega 32 TILES na posição 1 da VRAM (nunca usar a posição Zero!)
 
 
-x=150
-y=150
 
-set_sprite_size(0,3,3)
-set_sprite_gfx(0,1,0)
+dim dx as signed fixed 
+dim dy as signed fixed 
+dim radius as signed fixed = 20
+
+x = 288
+y = 240
+
+set_sprite_size(0,0,0)
+set_sprite_gfx(0,2,0)
+
+set_sprite_size(1,0,0)
+set_sprite_gfx(1,1,0)
+
+set_sprite_position(1,x,y)
 
 waitvbl = 0
 enable_global_int() 'Ativa interrupcoes globais
+
+
+angle = 0
 
 do
  j = joypad6b_read(0)
 
  if bit_test(j, btn_up) then
-  y-=1
-  set_sprite_gfx(0,17,0)
-  
-  elseif bit_test(j, btn_down) then
-  y+=1
-  set_sprite_gfx(0,17 OR V_flip,0)  
-  
+  radius+=1
+ elseif bit_test(j, btn_down) then
+  radius-=1
  end if
 
- if bit_test(j, btn_left) then
-  x-=1
-  set_sprite_gfx(0,1 OR H_Flip,0)  
-  
-  elseif bit_test(j, btn_right) then
-  x+=1
-  set_sprite_gfx(0,1,0)
-  
- end if
+ angle += 2
+ angle &= 511
 
- set_sprite_position(0,x,y)
- update_sprite_table()
+dx = cos(angle) * radius
+dy = sen(angle) * radius
+
+set_cursor_position(0,1)
+print("Seno  : ") : print_signed_fixed(dx) : print("     ")
+set_cursor_position(0,2)
+print("Coseno: ") : print_signed_fixed(dy) : print("     ")
+set_cursor_position(0,3)
+print("Raio  : ") : print_signed_fixed(radius) : print("     ")
+set_cursor_position(0,4)
+print("Angulo: ") : print_var(angle) : print("     ")
+
+
+ set_sprite_position(0, x+dx, y+dy)
+
 
  waitvbl = 1
  while(waitvbl)_asm("nop")
@@ -60,7 +75,7 @@ end sub
 
 
 Imports "\system\genesis_std.nbs" ' Biblioteca contendo funções standard do Mega Drive
-'Imports "\system\print_lib.nbs"   ' Inclui a funcao Print
+Imports "\system\print_lib.nbs"   ' Inclui a funcao Print
 Imports "\system\DMA_Queue.nbs"   ' Fila de DMA
 Imports "\system\trig.nbs"        ' Trigonometria para matematica de ponto Fixo
 

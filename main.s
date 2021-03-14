@@ -1,37 +1,51 @@
 align macro
      cnop 0,\1
      endm
-end_global_table equ $ff062e
+end_global_table equ $ff063c
 ;dim ram_pointer as long
 _global_ram_pointer equ $ff0000
-; Auto Declaracao variavel -> x=150
-_global_x equ $ff0004
-; Auto Declaracao variavel -> y=150
-_global_y equ $ff0006
+;dim dx as signed fixed 
+_global_dx equ $ff0004
+;dim dy as signed fixed 
+_global_dy equ $ff0006
+;dim radius as signed fixed = 20
+_global_radius equ $ff0008
+; Auto Declaracao variavel -> x = 288
+_global_x equ $ff000a
+; Auto Declaracao variavel -> y = 240
+_global_y equ $ff000c
 ; Auto Declaracao variavel -> waitvbl = 0
-_global_waitvbl equ $ff0008
+_global_waitvbl equ $ff000e
+; Auto Declaracao variavel -> angle = 0
+_global_angle equ $ff0010
 ; Auto Declaracao variavel ->  j = joypad6b_read(0)
-_global_j equ $ff000a
+_global_j equ $ff0012
 ;dim sprite_table[80] as new sprite_shape 'Buffer para a Sprite Table na RAM
-_global_sprite_table equ $ff000c
+_global_sprite_table equ $ff0014
 ;dim buff_dma[3] as long ' Buffer na RAM que serve de construtor para os comandos do DMA
-_global_buff_dma equ $ff028c
+_global_buff_dma equ $ff0294
 ;dim H_scroll_buff[448] as integer ' Buffer para a  scroll table
-_global_H_scroll_buff equ $ff0298
+_global_H_scroll_buff equ $ff02a0
 ;dim planes_addr[3] as integer '0=0 1=1 2=Plane_Win
-_global_planes_addr equ $ff0618
+_global_planes_addr equ $ff0620
 ;dim sprite_table_addr as integer
-_global_sprite_table_addr equ $ff061e
+_global_sprite_table_addr equ $ff0626
 ;dim scroll_table_addr as integer
-_global_scroll_table_addr equ $ff0620
+_global_scroll_table_addr equ $ff0628
 ;dim vdp_conf_table_addr as long
-_global_vdp_conf_table_addr equ $ff0622
+_global_vdp_conf_table_addr equ $ff062a
+;dim _print_cursor as integer
+_global__print_cursor equ $ff062e
+;dim _print_plane  as integer
+_global__print_plane equ $ff0630
+;dim _print_pallet as integer
+_global__print_pallet equ $ff0632
 ;dim __dma_queue_lenght__ as integer
-_global___dma_queue_lenght__ equ $ff0626
+_global___dma_queue_lenght__ equ $ff0634
 ;dim __dma_queue_max_lenght__ as integer
-_global___dma_queue_max_lenght__ equ $ff0628
+_global___dma_queue_max_lenght__ equ $ff0636
 ;dim __DMA_queue_buff_addr__ as long
-_global___DMA_queue_buff_addr__ equ $ff062a
+_global___DMA_queue_buff_addr__ equ $ff0638
 
 ;------------------------
 ;  Header Vector Table  -
@@ -78,43 +92,66 @@ _global___DMA_queue_buff_addr__ equ $ff062a
     ;std_init()   'Inicializa o VDP
     bsr std_init
 
+    ;print_init() 'Carrega a fonte para a VRAM
+    bsr print_init
+
+    ;print("  Por enquanto ta tudo tranquilo  o.O  ")
+    move.l #const_string_0_,-(a7)
+    bsr print
+    addq #4,a7
+
     ;dma_Queue_init(10)
     move.w #10,-(a7)
     bsr dma_Queue_init
     addq #2,a7
 
-    ;dma_CRAM_add_Queue(addressof(setas_cores),16,0) 'Carrega 16 cores na paleta Zero
-    move.l #0,-(a7)
-    move.w #16,-(a7)
-    move.l #setas_cores,-(a7)
-    bsr dma_CRAM_add_Queue
-    lea 10(a7),a7
-
-    ;dma_add_Queue(addressof(setas_sprites),32,1)    'Carrega 32 TILES na posicao 1 da VRAM (nunca usar a posicao Zero!)
-    move.l #1,-(a7)
+    ;dma_add_Queue(addressof(setas_sprites),32,256)    'Carrega 32 TILES na posicao 1 da VRAM (nunca usar a posicao Zero!)
+    move.l #256,-(a7)
     move.w #32,-(a7)
     move.l #setas_sprites,-(a7)
     bsr dma_add_Queue
     lea 10(a7),a7
+    move.w #(2560),_global_radius
 
-    ;x=150
-    move.w #150,_global_x
+    ;x = 288
+    move.w #288,_global_x
 
-    ;y=150
-    move.w #150,_global_y
+    ;y = 240
+    move.w #240,_global_y
 
-    ;set_sprite_size(0,3,3)
-    move.w #3,-(a7)
-    move.w #3,-(a7)
+    ;set_sprite_size(0,0,0)
+    move.w #0,-(a7)
+    move.w #0,-(a7)
     move.w #0,-(a7)
     bsr set_sprite_size
     addq #6,a7
 
-    ;set_sprite_gfx(0,1,0)
+    ;set_sprite_gfx(0,2,0)
     move.w #0,-(a7)
-    move.w #1,-(a7)
+    move.w #2,-(a7)
     move.w #0,-(a7)
     bsr set_sprite_gfx
+    addq #6,a7
+
+    ;set_sprite_size(1,0,0)
+    move.w #0,-(a7)
+    move.w #0,-(a7)
+    move.w #1,-(a7)
+    bsr set_sprite_size
+    addq #6,a7
+
+    ;set_sprite_gfx(1,1,0)
+    move.w #0,-(a7)
+    move.w #1,-(a7)
+    move.w #1,-(a7)
+    bsr set_sprite_gfx
+    addq #6,a7
+
+    ;set_sprite_position(1,x,y)
+    move.w _global_y,-(a7)
+    move.w _global_x,-(a7)
+    move.w #1,-(a7)
+    bsr set_sprite_position
     addq #6,a7
 
     ;waitvbl = 0
@@ -122,6 +159,9 @@ _global___DMA_queue_buff_addr__ equ $ff062a
 
     ;enable_global_int() 'Ativa interrupcoes globais
     bsr enable_global_int
+
+    ;angle = 0
+    move.w #0,_global_angle
 
     ;do
 lbl_do_1_start:
@@ -141,20 +181,13 @@ lbl_do_1_start:
     bra lbl_if_false_1
 lbl_if_true_1:
 
-    ;  y-=1
-    moveq #1,d0
-    sub.w d0,_global_y
-
-    ;  set_sprite_gfx(0,17,0)
-    move.w #0,-(a7)
-    move.w #17,-(a7)
-    move.w #0,-(a7)
-    bsr set_sprite_gfx
-    addq #6,a7
+    ;  radius+=1
+    move.w #(128),d0
+    add.w d0,_global_radius
     bra lbl_if_end_1
 lbl_if_false_1:
 
-    ;  elseif bit_test(j, 1) then
+    ; elseif bit_test(j, 1) then
     move.w _global_j,d0
     btst #1,d0
     sne d0
@@ -163,74 +196,133 @@ lbl_if_false_1:
     bra lbl_elseif_false_2
 lbl_elseif_true_2:
 
-    ;  y+=1
-    moveq #1,d0
-    add.w d0,_global_y
-
-    ;  set_sprite_gfx(0,17 OR &h1000,0)  
-    move.w #0,-(a7)
-    move.w #(17|$1000),-(a7)
-    move.w #0,-(a7)
-    bsr set_sprite_gfx
-    addq #6,a7
+    ;  radius-=1
+    move.w #(128),d0
+    sub.w d0,_global_radius
     bra lbl_if_end_1
 lbl_elseif_false_2:
 lbl_if_end_1:
 
-    ; if bit_test(j, 2) then
-    move.w _global_j,d0
-    btst #2,d0
-    sne d0
-    and.w #$01,d0
-    dbra d0,lbl_if_true_3
-    bra lbl_if_false_3
-lbl_if_true_3:
+    ; angle += 2
+    moveq #2,d0
+    add.w d0,_global_angle
 
-    ;  x-=1
-    moveq #1,d0
-    sub.w d0,_global_x
+    ; angle &= 511
+    move.w #511,d0
+    and.w d0,_global_angle
 
-    ;  set_sprite_gfx(0,1 OR &h800,0)  
-    move.w #0,-(a7)
-    move.w #(1|$800),-(a7)
-    move.w #0,-(a7)
-    bsr set_sprite_gfx
-    addq #6,a7
-    bra lbl_if_end_3
-lbl_if_false_3:
+    ;dx = cos(angle) * radius
+    move.w _global_angle,-(a7)
+    bsr cos
+    addq #2,a7
+    muls _global_radius,d7
+    asr.l #7,d7
+    move.w d7,_global_dx
 
-    ;  elseif bit_test(j, 3) then
-    move.w _global_j,d0
-    btst #3,d0
-    sne d0
-    and.w #$01,d0
-    dbra d0,lbl_elseif_true_4
-    bra lbl_elseif_false_4
-lbl_elseif_true_4:
+    ;dy = sen(angle) * radius
+    move.w _global_angle,-(a7)
+    bsr sen
+    addq #2,a7
+    muls _global_radius,d7
+    asr.l #7,d7
+    move.w d7,_global_dy
 
-    ;  x+=1
-    moveq #1,d0
-    add.w d0,_global_x
-
-    ;  set_sprite_gfx(0,1,0)
-    move.w #0,-(a7)
+    ;set_cursor_position(0,1)
     move.w #1,-(a7)
     move.w #0,-(a7)
-    bsr set_sprite_gfx
-    addq #6,a7
-    bra lbl_if_end_3
-lbl_elseif_false_4:
-lbl_if_end_3:
+    bsr set_cursor_position
+    addq #4,a7
 
-    ; set_sprite_position(0,x,y)
-    move.w _global_y,-(a7)
-    move.w _global_x,-(a7)
+    ;print("Seno  : ") : print_signed_fixed(dx) : print("     ")
+    move.l #const_string_1_,-(a7)
+    bsr print
+    addq #4,a7
+
+    ;print("Seno  : ") : print_signed_fixed(dx) : print("     ")
+    move.w _global_dx,-(a7)
+    bsr print_signed_fixed
+    addq #2,a7
+
+    ;print("Seno  : ") : print_signed_fixed(dx) : print("     ")
+    move.l #const_string_2_,-(a7)
+    bsr print
+    addq #4,a7
+
+    ;set_cursor_position(0,2)
+    move.w #2,-(a7)
+    move.w #0,-(a7)
+    bsr set_cursor_position
+    addq #4,a7
+
+    ;print("Coseno: ") : print_signed_fixed(dy) : print("     ")
+    move.l #const_string_3_,-(a7)
+    bsr print
+    addq #4,a7
+
+    ;print("Coseno: ") : print_signed_fixed(dy) : print("     ")
+    move.w _global_dy,-(a7)
+    bsr print_signed_fixed
+    addq #2,a7
+
+    ;print("Coseno: ") : print_signed_fixed(dy) : print("     ")
+    move.l #const_string_4_,-(a7)
+    bsr print
+    addq #4,a7
+
+    ;set_cursor_position(0,3)
+    move.w #3,-(a7)
+    move.w #0,-(a7)
+    bsr set_cursor_position
+    addq #4,a7
+
+    ;print("Raio  : ") : print_signed_fixed(radius) : print("     ")
+    move.l #const_string_5_,-(a7)
+    bsr print
+    addq #4,a7
+
+    ;print("Raio  : ") : print_signed_fixed(radius) : print("     ")
+    move.w _global_radius,-(a7)
+    bsr print_signed_fixed
+    addq #2,a7
+
+    ;print("Raio  : ") : print_signed_fixed(radius) : print("     ")
+    move.l #const_string_6_,-(a7)
+    bsr print
+    addq #4,a7
+
+    ;set_cursor_position(0,4)
+    move.w #4,-(a7)
+    move.w #0,-(a7)
+    bsr set_cursor_position
+    addq #4,a7
+
+    ;print("Angulo: ") : print_var(angle) : print("     ")
+    move.l #const_string_7_,-(a7)
+    bsr print
+    addq #4,a7
+
+    ;print("Angulo: ") : print_var(angle) : print("     ")
+    move.w _global_angle,-(a7)
+    bsr print_var
+    addq #2,a7
+
+    ;print("Angulo: ") : print_var(angle) : print("     ")
+    move.l #const_string_8_,-(a7)
+    bsr print
+    addq #4,a7
+
+    ; set_sprite_position(0, x+dx, y+dy)
+    move.w _global_dy,d0
+    lsr.w #7,d0
+    add.w _global_y,d0
+    move.w d0,-(a7)
+    move.w _global_dx,d0
+    lsr.w #7,d0
+    add.w _global_x,d0
+    move.w d0,-(a7)
     move.w #0,-(a7)
     bsr set_sprite_position
     addq #6,a7
-
-    ; update_sprite_table()
-    bsr update_sprite_table
 
     ; waitvbl = 1
     move.w #1,_global_waitvbl
@@ -1495,6 +1587,574 @@ _local_nframes set 8
 
     ;end sub
 
+    ;sub print_init()
+print_init:
+
+    ;load_tiles_DMA(addressof(font_lbl_prtn),256,0) ' Carrega a fonte na Vram
+    move.l #0,-(a7)
+    move.w #256,-(a7)
+    move.l #font_lbl_prtn,-(a7)
+    bsr load_tiles_DMA
+    lea 10(a7),a7
+
+    ;_print_cursor = 0
+    move.w #0,_global__print_cursor
+
+    ;_print_plane = 0
+    move.w #0,_global__print_plane
+
+    ;_print_pallet = 0
+    move.w #0,_global__print_pallet
+    rts
+
+    ;end sub
+
+    ;sub set_cursor_position(byval _print_cx_p as integer, byval _print_cy_p as integer)
+set_cursor_position:
+    link a6,#-0
+; byval _local__print_cx_p as word
+_local__print_cx_p set 8
+; byval _local__print_cy_p as word
+_local__print_cy_p set 10
+
+    ;_print_cursor = (_print_cx_p and 63) + ((_print_cy_p and 31) * 64) 
+    move.w (_local__print_cx_p,a6),d0
+    and.w #63,d0
+    move.w (_local__print_cy_p,a6),d1
+    and.w #31,d1
+    lsl.w #6,d1
+    add.w d1,d0
+    move.w d0,_global__print_cursor
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub set_text_plane(byval _print_plane_text as integer)
+set_text_plane:
+    link a6,#-0
+; byval _local__print_plane_text as word
+_local__print_plane_text set 8
+
+    ;_print_plane = _print_plane_text
+    move.w (_local__print_plane_text,a6),_global__print_plane
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub set_text_pal(byval _print_pal_set as integer)
+set_text_pal:
+    link a6,#-0
+; byval _local__print_pal_set as word
+_local__print_pal_set set 8
+
+    ;_print_pallet = _print_pal_set
+    move.w (_local__print_pal_set,a6),_global__print_pallet
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub print(byval _print_string as long)
+print:
+;  dim char as integer = peek(  _print_string as byte)
+_local_char set -2
+    link a6,#-2
+; byval _local__print_string as long
+_local__print_string set 8
+    move.l (_local__print_string,a6),a0
+    moveq #0,d0
+    move.b (a0),d0
+    move.w d0,(_local_char,a6)
+
+    ;  while(char<>0)
+lbl_while_start_2:
+    move.w (_local_char,a6),d0
+    tst.w d0
+    sne d0
+    and.w #$01,d0
+    dbra d0,lbl_while_true_2
+    bra lbl_while_false_2
+lbl_while_true_2:
+
+    ;  draw_tile(char OR _print_pallet, _print_cursor AND 63 , (_print_cursor / 64) ,_print_plane)
+    move.w _global__print_plane,-(a7)
+    move.w _global__print_cursor,d0
+    lsr.w #6,d0
+    move.w d0,-(a7)
+    move.w _global__print_cursor,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w (_local_char,a6),d0
+    or.w _global__print_pallet,d0
+    move.w d0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  _print_string +=1
+    moveq #1,d0
+    add.l d0,(_local__print_string,a6)
+
+    ;  _print_cursor +=1
+    moveq #1,d0
+    add.w d0,_global__print_cursor
+
+    ;  if _print_cursor > (64*32) then _print_cursor = 0
+    move.w _global__print_cursor,d0
+    cmp.w #(64*32),d0
+    shi d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_3
+    bra lbl_if_false_3
+lbl_if_true_3:
+
+    ;  if _print_cursor > (64*32) then _print_cursor = 0
+    move.w #0,_global__print_cursor
+lbl_if_false_3:
+
+    ;  char = peek(  _print_string as byte)
+    move.l (_local__print_string,a6),a0
+    moveq #0,d0
+    move.b (a0),d0
+    move.w d0,(_local_char,a6)
+    bra lbl_while_start_2
+
+    ;  end while
+lbl_while_false_2:
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub println(byval _print_string as long)
+println:
+;  dim char as integer = peek(  _print_string as byte)
+_local_char set -2
+    link a6,#-2
+; byval _local__print_string as long
+_local__print_string set 8
+    move.l (_local__print_string,a6),a0
+    moveq #0,d0
+    move.b (a0),d0
+    move.w d0,(_local_char,a6)
+
+    ;  while(char<>0)
+lbl_while_start_3:
+    move.w (_local_char,a6),d0
+    tst.w d0
+    sne d0
+    and.w #$01,d0
+    dbra d0,lbl_while_true_3
+    bra lbl_while_false_3
+lbl_while_true_3:
+
+    ;  draw_tile(char OR _print_pallet, _print_cursor AND 63 , (_print_cursor / 64) ,_print_plane)
+    move.w _global__print_plane,-(a7)
+    move.w _global__print_cursor,d0
+    lsr.w #6,d0
+    move.w d0,-(a7)
+    move.w _global__print_cursor,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w (_local_char,a6),d0
+    or.w _global__print_pallet,d0
+    move.w d0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  _print_string +=1
+    moveq #1,d0
+    add.l d0,(_local__print_string,a6)
+
+    ;  _print_cursor +=1
+    moveq #1,d0
+    add.w d0,_global__print_cursor
+
+    ;  if _print_cursor > (64*32) then _print_cursor = 0
+    move.w _global__print_cursor,d0
+    cmp.w #(64*32),d0
+    shi d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_4
+    bra lbl_if_false_4
+lbl_if_true_4:
+
+    ;  if _print_cursor > (64*32) then _print_cursor = 0
+    move.w #0,_global__print_cursor
+lbl_if_false_4:
+
+    ;  char = peek(  _print_string as byte)
+    move.l (_local__print_string,a6),a0
+    moveq #0,d0
+    move.b (a0),d0
+    move.w d0,(_local_char,a6)
+    bra lbl_while_start_3
+
+    ;  end while
+lbl_while_false_3:
+
+    ;  _print_cursor += 64 - (_print_cursor and 63) 
+    move.w _global__print_cursor,d1
+    and.w #63,d1
+    moveq #64,d0
+    sub.w d1,d0
+    add.w d0,_global__print_cursor
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub print_var(byval _print_val as integer)
+print_var:
+; dim flag_prnt as integer = 0
+_local_flag_prnt set -2
+; dim div_f as integer = 10000
+_local_div_f set -4
+; dim pars_ as integer
+_local_pars_ set -6
+    link a6,#-6
+; byval _local__print_val as word
+_local__print_val set 8
+
+    ; if _print_val = 0 then
+    move.w (_local__print_val,a6),d0
+    tst.w d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_5
+    bra lbl_if_false_5
+lbl_if_true_5:
+
+    ; print("0") : return
+    move.l #const_string_9_,-(a7)
+    bsr print
+    addq #4,a7
+
+    ; print("0") : return
+    unlk a6 
+    rts
+    bra lbl_if_end_5
+lbl_if_false_5:
+lbl_if_end_5:
+    move.w #0,(_local_flag_prnt,a6)
+    move.w #10000,(_local_div_f,a6)
+
+    ; while(div_f)
+lbl_while_start_4:
+    tst.w (_local_div_f,a6)
+    bne lbl_while_true_4
+    bra lbl_while_false_4
+lbl_while_true_4:
+
+    ; pars_ = _print_val / div_f
+    moveq #0,d0
+    move.w (_local__print_val,a6),d0
+    divu (_local_div_f,a6),d0
+    move.w d0,(_local_pars_,a6)
+
+    ; if pars_ OR flag_prnt then
+    move.w (_local_pars_,a6),d0
+    or.w (_local_flag_prnt,a6),d0
+    dbra d0,lbl_if_true_6
+    bra lbl_if_false_6
+lbl_if_true_6:
+
+    ; flag_prnt = true
+    move.w #1,(_local_flag_prnt,a6)
+
+    ; draw_tile(((pars_+ &H30) OR _print_pallet), _print_cursor AND 63 , (_print_cursor / 64) ,_print_plane)
+    move.w _global__print_plane,-(a7)
+    move.w _global__print_cursor,d0
+    lsr.w #6,d0
+    move.w d0,-(a7)
+    move.w _global__print_cursor,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w (_local_pars_,a6),d0
+    add.w #$30,d0
+    or.w _global__print_pallet,d0
+    move.w d0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ; _print_cursor +=1
+    moveq #1,d0
+    add.w d0,_global__print_cursor
+
+    ; if _print_cursor > (64*32) then _print_cursor = 0
+    move.w _global__print_cursor,d0
+    cmp.w #(64*32),d0
+    shi d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_7
+    bra lbl_if_false_7
+lbl_if_true_7:
+
+    ; if _print_cursor > (64*32) then _print_cursor = 0
+    move.w #0,_global__print_cursor
+lbl_if_false_7:
+    bra lbl_if_end_6
+lbl_if_false_6:
+lbl_if_end_6:
+
+    ; _print_val -= pars_ * div_f
+    move.w (_local_pars_,a6),d0
+    mulu (_local_div_f,a6),d0
+    sub.w d0,(_local__print_val,a6)
+
+    ; div_f = div_f / 10
+    moveq #0,d0
+    move.w (_local_div_f,a6),d0
+    divu #10,d0
+    move.w d0,(_local_div_f,a6)
+    bra lbl_while_start_4
+
+    ; wend
+lbl_while_false_4:
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub print_signed(byval _print_val as signed integer)
+print_signed:
+    link a6,#-0
+; byval _local__print_val as word
+_local__print_val set 8
+
+    ; if _unsigned(_print_val > 32768) then 'Negativo
+    move.w (_local__print_val,a6),d0
+    cmp.w #32768,d0
+    shi d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_8
+    bra lbl_if_false_8
+lbl_if_true_8:
+
+    ; print("-")
+    move.l #const_string_10_,-(a7)
+    bsr print
+    addq #4,a7
+
+    ; print_var( (~_print_val) +1 )
+    move.w (_local__print_val,a6),d0
+    not.w d0
+    addq #1,d0
+    move.w d0,-(a7)
+    bsr print_var
+    addq #2,a7
+    bra lbl_if_end_8
+lbl_if_false_8:
+
+    ; else 'Positivo
+
+    ; print("+")
+    move.l #const_string_11_,-(a7)
+    bsr print
+    addq #4,a7
+
+    ; print_var( _print_val )
+    move.w (_local__print_val,a6),-(a7)
+    bsr print_var
+    addq #2,a7
+lbl_if_end_8:
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub print_hex(byval _print_val as long)
+print_hex:
+;  dim _parse_bf[9] as byte ' String local que vai armazenar o valor do Hex convertido para string
+_local__parse_bf set -10
+; Auto Declaracao variavel ->   for k = 0 to 8
+_local_k set -12
+    link a6,#-12
+; byval _local__print_val as long
+_local__print_val set 8
+
+    ;  for k = 0 to 8
+    moveq #0,d0
+    move.w d0,(_local_k,a6)
+lbl_for_4_start:
+    move.w (_local_k,a6),d0
+    cmp.w #8,d0
+    beq lbl_for_4_end
+
+    ;  _parse_bf[7-k] = _long( (_print_val AND (&hF << k*4))>>( k*4) )
+    moveq #7,d0
+    sub.w (_local_k,a6),d0
+    add.w #_local__parse_bf,d0
+    moveq #0,d2
+    move.w (_local_k,a6),d2
+    add.l d2,d2
+    add.l d2,d2
+    moveq #$F,d1
+    lsl.l d2,d1
+    and.l (_local__print_val,a6),d1
+    moveq #0,d2
+    move.w (_local_k,a6),d2
+    add.l d2,d2
+    add.l d2,d2
+    lsr.l d2,d1
+    move.b d1,0(a6,d0.w)
+
+    ;  if _byte(_parse_bf[7-k] > 9) then _parse_bf[7-k] += _char("7") else _parse_bf[7-k] += _char("0") 
+    moveq #7,d0
+    sub.w (_local_k,a6),d0
+    add.w #_local__parse_bf,d0
+    move.b 0(a6,d0.w),d1
+    cmp.b #9,d1
+    shi d1
+    and.b #$01,d1
+    tst.b d1
+    bne lbl_if_true_9
+    bra lbl_if_false_9
+lbl_if_true_9:
+
+    ;  if _byte(_parse_bf[7-k] > 9) then _parse_bf[7-k] += _char("7") else _parse_bf[7-k] += _char("0") 
+    moveq #7,d0
+    sub.w (_local_k,a6),d0
+    add.w #_local__parse_bf,d0
+    move.b #'7',d1
+    add.b d1,0(a6,d0.w)
+    bra lbl_if_end_9
+lbl_if_false_9:
+
+    ;  if _byte(_parse_bf[7-k] > 9) then _parse_bf[7-k] += _char("7") else _parse_bf[7-k] += _char("0") 
+    moveq #7,d0
+    sub.w (_local_k,a6),d0
+    add.w #_local__parse_bf,d0
+    move.b #'0',d1
+    add.b d1,0(a6,d0.w)
+lbl_if_end_9:
+    moveq #1,d0
+    add.w d0,(_local_k,a6)
+    bra lbl_for_4_start
+
+    ;  next k 
+lbl_for_4_end:
+
+    ;  _parse_bf[8] = 0 'Caractere Null - Fim de string
+    move.b #0,(_local__parse_bf+(8<<0),a6)
+
+    ;  print("0x")
+    move.l #const_string_12_,-(a7)
+    bsr print
+    addq #4,a7
+
+    ;  print(addressof(_parse_bf))
+    move.l a6,d0
+    add.l #_local__parse_bf,d0
+    move.l d0,-(a7)
+    bsr print
+    addq #4,a7
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub print_fixed(byval _print_val as fixed)
+print_fixed:
+    link a6,#-0
+; byval _local__print_val as word
+_local__print_val set 8
+
+    ;  print_var(_print_val)
+    move.w (_local__print_val,a6),d0
+    lsr.w #7,d0
+    move.w d0,-(a7)
+    bsr print_var
+    addq #2,a7
+
+    ;  print(".")
+    move.l #const_string_13_,-(a7)
+    bsr print
+    addq #4,a7
+
+    ;  _print_val = ( (_print_val and &H7F)<<7)  * 0.78125
+    move.w (_local__print_val,a6),d0
+    and.w #$7F,d0
+    lsl.w #7,d0
+    mulu #(100),d0
+    lsr.l #7,d0
+    move.w d0,(_local__print_val,a6)
+
+    ;  if _fixed(_print_val < 10) then print("0") 
+    move.w (_local__print_val,a6),d0
+    cmp.w #(1280),d0
+    scs d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_10
+    bra lbl_if_false_10
+lbl_if_true_10:
+
+    ;  if _fixed(_print_val < 10) then print("0") 
+    move.l #const_string_14_,-(a7)
+    bsr print
+    addq #4,a7
+lbl_if_false_10:
+
+    ;  print_var( _print_val)  
+    move.w (_local__print_val,a6),d0
+    lsr.w #7,d0
+    move.w d0,-(a7)
+    bsr print_var
+    addq #2,a7
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub print_signed_fixed(byval _print_val as fixed)  
+print_signed_fixed:
+    link a6,#-0
+; byval _local__print_val as word
+_local__print_val set 8
+
+    ;  if _unsigned(_print_val > 255) then 'Negativo
+    move.w (_local__print_val,a6),d0
+    lsr.w #7,d0
+    cmp.w #255,d0
+    shi d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_11
+    bra lbl_if_false_11
+lbl_if_true_11:
+
+    ;  print("-")
+    move.l #const_string_15_,-(a7)
+    bsr print
+    addq #4,a7
+
+    ;  print_fixed( (~(_print_val-0.01)) )
+    move.w (_local__print_val,a6),d0
+    sub.w #(1),d0
+    not.w d0
+    move.w d0,-(a7)
+    bsr print_fixed
+    addq #2,a7
+    bra lbl_if_end_11
+lbl_if_false_11:
+
+    ;  else 'Positivo
+
+    ;  print("+")
+    move.l #const_string_16_,-(a7)
+    bsr print
+    addq #4,a7
+
+    ;  print_fixed( _print_val )
+    move.w (_local__print_val,a6),-(a7)
+    bsr print_fixed
+    addq #2,a7
+lbl_if_end_11:
+    unlk a6 
+    rts
+
+    ; end sub
+
     ;sub dma_Queue_init(byval __size__ as integer)
 dma_Queue_init:
 ; Auto Declaracao variavel ->  for loc_i = 0 to __size__
@@ -1521,10 +2181,10 @@ _local___size__ set 8
     ; for loc_i = 0 to __size__
     moveq #0,d0
     move.w d0,(_local_loc_i,a6)
-lbl_for_4_start:
+lbl_for_5_start:
     move.w (_local_loc_i,a6),d0
     cmp.w (_local___size__,a6),d0
-    beq lbl_for_4_end
+    beq lbl_for_5_end
 
     ;  poke(&h94009300 as long, (__DMA_queue_buff_addr__ + (loc_i <<4))   )
     moveq #0,d0
@@ -1553,10 +2213,10 @@ lbl_for_4_start:
     move.l #$95008114,(a0)
     moveq #1,d0
     add.w d0,(_local_loc_i,a6)
-    bra lbl_for_4_start
+    bra lbl_for_5_start
 
     ; next
-lbl_for_4_end:
+lbl_for_5_end:
     unlk a6 
     rts
 
@@ -1578,14 +2238,14 @@ _local_end_dest set 14
     cmp.w _global___dma_queue_max_lenght__,d0
     shi d0
     and.w #$01,d0
-    dbra d0,lbl_if_true_5
-    bra lbl_if_false_5
-lbl_if_true_5:
+    dbra d0,lbl_if_true_12
+    bra lbl_if_false_12
+lbl_if_true_12:
 
     ; if ((__dma_queue_lenght__+2) > __dma_queue_max_lenght__) then return 'Buffer Overflow
     unlk a6 
     rts
-lbl_if_false_5:
+lbl_if_false_12:
 
     ; push((__DMA_queue_buff_addr__ + (__dma_queue_lenght__ <<4))+10 as long, "A0")
     moveq #0,d0
@@ -1642,11 +2302,6 @@ lbl_if_false_5:
  adda       #16,A0
  moveq       #1,D4
  add.w     D4,_global___dma_queue_lenght__
- 
- ;move.l -10(A0),$C00004
- ;move.l  -6(A0),$C00004
- ;move.w  -2(A0),$C00004
- ;move.l      D2,$C00004
  rts
  @fimQ: 
 
@@ -1673,14 +2328,14 @@ _local_paleta_dest set 14
     cmp.w _global___dma_queue_max_lenght__,d0
     shi d0
     and.w #$01,d0
-    dbra d0,lbl_if_true_6
-    bra lbl_if_false_6
-lbl_if_true_6:
+    dbra d0,lbl_if_true_13
+    bra lbl_if_false_13
+lbl_if_true_13:
 
     ; if ((__dma_queue_lenght__+2) > __dma_queue_max_lenght__) then return 'Buffer Overflow
     unlk a6 
     rts
-lbl_if_false_6:
+lbl_if_false_13:
 
     ; push((__DMA_queue_buff_addr__ + (__dma_queue_lenght__ <<4))+10 as long, "A0")
     moveq #0,d0
@@ -1759,14 +2414,14 @@ _local_paleta_dest set 14
     cmp.w _global___dma_queue_max_lenght__,d0
     shi d0
     and.w #$01,d0
-    dbra d0,lbl_if_true_7
-    bra lbl_if_false_7
-lbl_if_true_7:
+    dbra d0,lbl_if_true_14
+    bra lbl_if_false_14
+lbl_if_true_14:
 
     ; if ((__dma_queue_lenght__+1) > __dma_queue_max_lenght__) then return 'Buffer Overflow
     unlk a6 
     rts
-lbl_if_false_7:
+lbl_if_false_14:
 
     ; push((__DMA_queue_buff_addr__ + (__dma_queue_lenght__ <<4))+10 as long, "A0")
     moveq #0,d0
@@ -1823,14 +2478,14 @@ _local___addr_dest__ set 14
     cmp.w _global___dma_queue_max_lenght__,d0
     shi d0
     and.w #$01,d0
-    dbra d0,lbl_if_true_8
-    bra lbl_if_false_8
-lbl_if_true_8:
+    dbra d0,lbl_if_true_15
+    bra lbl_if_false_15
+lbl_if_true_15:
 
     ; if ((__dma_queue_lenght__+1) > __dma_queue_max_lenght__) then return 'Buffer Overflow
     unlk a6 
     rts
-lbl_if_false_8:
+lbl_if_false_15:
 
     ; push((__DMA_queue_buff_addr__ + (__dma_queue_lenght__ <<4))+10 as long, "A0")
     moveq #0,d0
@@ -1886,14 +2541,14 @@ _local___i__ set -2
     tst.w d0
     seq d0
     and.w #$01,d0
-    dbra d0,lbl_if_true_9
-    bra lbl_if_false_9
-lbl_if_true_9:
+    dbra d0,lbl_if_true_16
+    bra lbl_if_false_16
+lbl_if_true_16:
 
     ; if __dma_queue_lenght__ = 0 then return
     unlk a6 
     rts
-lbl_if_false_9:
+lbl_if_false_16:
 
     ; push(__DMA_queue_buff_addr__  as long, "A1")
     move.l _global___DMA_queue_buff_addr__,A1
@@ -1904,10 +2559,10 @@ lbl_if_false_9:
     ; for __i__ = 0 to __dma_queue_lenght__
     moveq #0,d0
     move.w d0,(_local___i__,a6)
-lbl_for_5_start:
+lbl_for_6_start:
     move.w (_local___i__,a6),d0
     cmp.w _global___dma_queue_lenght__,d0
-    beq lbl_for_5_end
+    beq lbl_for_6_end
 
     ; _asm("move.l (A1)+,(A2)") ' Tamanho dos dados		
     move.l (A1)+,(A2)
@@ -1925,10 +2580,10 @@ lbl_for_5_start:
     addq      #2,A1
     moveq #1,d0
     add.w d0,(_local___i__,a6)
-    bra lbl_for_5_start
+    bra lbl_for_6_start
 
     ; next
-lbl_for_5_end:
+lbl_for_6_end:
 
     ; __dma_queue_lenght__ = 0 'Clear Queue 
     move.w #0,_global___dma_queue_lenght__
@@ -1937,14 +2592,21 @@ lbl_for_5_end:
 
     ;end sub
 
-    ;function sen(byval _angle__ as integer) as signed fixed
+    ;function sen(byval __angle__ as integer) as signed fixed
 sen:
     link a6,#-0
-; byval _local__angle__ as word
-_local__angle__ set 8
+; byval _local___angle__ as word
+_local___angle__ set 8
+    moveq #0,d0
+    move.w (_local___angle__,a6),d0
+    and.l #511,d0
+    add.l d0,d0
+    add.l #table_sin_fixed__,d0
+    move.l d0,a0
+    move.w (a0),d0
 
-    ;return 0
-    move.w #(0),d7
+    ;return peek(addressof(table_sin_fixed__) + ((__angle__ mod 512)<<1) as integer)
+    move.w d0,d7
     unlk a6 
     rts
 
@@ -1955,9 +2617,16 @@ cos:
     link a6,#-0
 ; byval _local___angle__ as word
 _local___angle__ set 8
+    moveq #0,d0
+    move.w (_local___angle__,a6),d0
+    and.l #511,d0
+    add.l d0,d0
+    add.l #table_cos_fixed__,d0
+    move.l d0,a0
+    move.w (a0),d0
 
-    ;return 0
-    move.w #(0),d7
+    ;return peek(addressof(table_cos_fixed__) + ((__angle__ mod 512)<<1) as integer)
+    move.w d0,d7
     unlk a6 
     rts
 
@@ -1968,16 +2637,47 @@ tan:
     link a6,#-0
 ; byval _local___angle__ as word
 _local___angle__ set 8
+    moveq #0,d0
+    move.w (_local___angle__,a6),d0
+    and.l #511,d0
+    add.l d0,d0
+    add.l #table_tan_fixed__,d0
+    move.l d0,a0
+    move.w (a0),d0
 
-    ;return 0
-    move.w #(0),d7
+    ;return peek(addressof(table_tan_fixed__) + ((__angle__ mod 512)<<1) as integer)
+    move.w d0,d7
     unlk a6 
     rts
 
     ;end function
-table_sin_fixed__:
-table_cos_fixed__:
-table_tan_fixed__:
+    even
+const_string_0_:
+    dc.b "  Por enquanto ta tudo tranquilo  o.O  ",0
+    even
+const_string_1_:
+    dc.b "Seno  : ",0
+    even
+const_string_2_:
+    dc.b "     ",0
+    even
+const_string_3_:
+    dc.b "Coseno: ",0
+    even
+const_string_4_:
+    dc.b "     ",0
+    even
+const_string_5_:
+    dc.b "Raio  : ",0
+    even
+const_string_6_:
+    dc.b "     ",0
+    even
+const_string_7_:
+    dc.b "Angulo: ",0
+    even
+const_string_8_:
+    dc.b "     ",0
     even
 VDP_std_Reg_init:
     dc.b $04
@@ -2000,6 +2700,59 @@ VDP_std_Reg_init:
     dc.b $00
     dc.b $00
     dc.b $00
+    even
+const_string_9_:
+    dc.b "0",0
+    even
+const_string_10_:
+    dc.b "-",0
+    even
+const_string_11_:
+    dc.b "+",0
+    even
+const_string_12_:
+    dc.b "0x",0
+    even
+const_string_13_:
+    dc.b ".",0
+    even
+const_string_14_:
+    dc.b "0",0
+    even
+const_string_15_:
+    dc.b "-",0
+    even
+const_string_16_:
+    dc.b "+",0
+
+    ;imports "\system\font_msxBR_8x8.bin , -f , -e"
+    even
+font_lbl_prtn:
+    incbin "C:\workbench\Alcatech_NextBasic_Bin\compiler\system\font_msxbr_8x8.bin " 
+    even
+table_sin_fixed__:
+    dc.w 0,1,3,5,6,8,9,12,13,14,15,17,19,20,22,23,24,27,28,29,31,32,35,36,37,38,40,42,44,45,46,47,49,50,51,54,55,56,58,59,60,61,63,64,65,67,68,69,72,73,74,76,77,78,78,79,81,82,83,84,86,87,88,90,91,92,92,93,95,96,97,97,99,100,101,102,102,104,105,105,106,108,108,109,110,110,111,113
+    dc.w 113,114,114,115,115,116,116,118,118,119,119,120,120,122,122,122,123,123,123,124,124,124,125,125,125,125,127,127,127,127,127,127,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,127,127,127,127,127,127,125,125,125,125,124,124,124,123,123,123,122,122,122,120,120,119,119,118,118,116,116,115,115,114,114,113,113,111,110,110,109,109,108
+    dc.w 106,106,105,104,102,102,101,100,99,99,97,96,95,93,93,92,91,90,88,87,86,84,83,83,82,81,79,78,77,76,74,73,72,70,69,68,67,65,63,61,60,59,58,56,55,54,52,51,49,47,46,45,44,42,41,38,37,36,35,33,32,29,28,27,26,24,22,20,19,18,15,14,13,12,10,8,6,5,4,1
+    dc.w 0,-1,-3,-4,-6,-8,-9,-10,-13,-14,-15,-17,-18,-20,-22,-23,-24,-26,-28,-29,-31,-32,-33,-36,-37,-38,-40,-41,-42,-45,-46,-47,-49,-50,-51,-52,-54,-56,-58,-59,-60,-61,-63,-64,-65,-67,-68,-69,-70,-72,-73,-74,-76,-77,-78,-79,-81,-82,-83,-84,-86,-87,-88,-90,-90,-91,-92,-93,-95,-96,-97,-97,-99,-100,-101,-101,-102,-104,-105,-105,-106,-108,-108,-109,-110,-110,-111,-111
+    dc.w -113,-114,-114,-115,-115,-116,-116,-118,-118,-119,-119,-120,-120,-120,-122,-122,-123,-123,-123,-124,-124,-124,-124,-125,-125,-125,-125,-127,-127,-127,-127,-127,-127,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-127,-127,-127,-127,-127,-127,-125,-125,-125,-125,-124,-124,-124,-123,-123,-123,-122,-122,-122,-120,-120,-119,-119,-119,-118,-118,-116,-116,-115,-115,-114,-113,-113,-111,-111,-110,-109,-109,-108
+    dc.w -106,-106,-105,-104,-104,-102,-101,-100,-100,-99,-97,-96,-95,-95,-93,-92,-91,-90,-88,-87,-86,-86,-84,-83,-82,-81,-79,-78,-77,-76,-74,-73,-72,-70,-69,-68,-67,-65,-64,-63,-61,-59,-58,-56,-55,-54,-52,-51,-50,-49,-46,-45,-44,-42,-41,-40,-38,-36,-35,-33,-32,-31,-28,-27,-26,-24,-23,-20,-19,-18,-17,-15,-13,-12,-10,-9,-6,-5,-4,-3
+    even
+table_cos_fixed__:
+    dc.w 128,128,128,128,128,128,128,128,128,127,127,127,127,127,127,125,125,125,125,124,124,124,123,123,123,122,122,122,120,120,119,119,118,118,116,116,115,115,114,114,113,113,111,110,110,109,109,108,106,105,105,104,102,102,101,100,99,99,97,96,95,93,92,92,91,90,88,87,86,84,83,82,81,81,79,78,77,76,74,73,72,70,69,68,65,64,63,61
+    dc.w 60,59,58,56,55,54,52,50,49,47,46,45,44,42,40,38,37,36,35,33,31,29,28,27,26,23,22,20,19,18,15,14,13,12,9,8,6,5,4,1,0,-1,-3,-5,-6,-8,-9,-10,-13,-14,-15,-17,-19,-20,-22,-23,-24,-27,-28,-29,-31,-32,-35,-36,-37,-38,-40,-41,-44,-45,-46,-47,-49,-50,-51,-52,-55,-56,-58,-59,-60,-61,-63,-64,-65,-67,-68,-69
+    dc.w -70,-72,-73,-74,-76,-77,-78,-79,-81,-82,-83,-84,-86,-87,-88,-90,-91,-91,-92,-93,-95,-96,-97,-97,-99,-100,-101,-101,-102,-104,-105,-105,-106,-108,-108,-109,-110,-110,-111,-113,-113,-114,-114,-115,-115,-116,-116,-118,-118,-119,-119,-120,-120,-120,-122,-122,-123,-123,-123,-124,-124,-124,-125,-125,-125,-125,-125,-127,-127,-127,-127,-127,-127,-128,-128,-128,-128,-128,-128,-128
+    dc.w -128,-128,-128,-128,-128,-128,-128,-128,-128,-127,-127,-127,-127,-127,-127,-125,-125,-125,-125,-124,-124,-124,-123,-123,-123,-122,-122,-122,-120,-120,-119,-119,-118,-118,-118,-116,-116,-115,-114,-114,-113,-113,-111,-111,-110,-109,-109,-108,-106,-106,-105,-104,-104,-102,-101,-100,-100,-99,-97,-96,-95,-93,-93,-92,-91,-90,-88,-87,-86,-84,-84,-83,-82,-81,-79,-78,-77,-76,-74,-73,-72,-70,-69,-68,-67,-65,-64,-63
+    dc.w -60,-59,-58,-56,-55,-54,-52,-51,-50,-47,-46,-45,-44,-42,-41,-40,-37,-36,-35,-33,-32,-29,-28,-27,-26,-24,-22,-20,-19,-18,-17,-14,-13,-12,-10,-9,-6,-5,-4,-3,0,1,3,4,6,8,9,10,12,14,15,17,18,19,22,23,24,26,28,29,31,32,33,35,37,38,40,41,42,44,46,47,49,50,51,52,54,55,58,59,60,61,63,64,65,67,68,69
+    dc.w 70,72,73,74,76,77,78,79,81,82,83,84,86,87,88,90,90,91,92,93,95,96,96,97,99,100,101,101,102,104,104,105,106,108,108,109,110,110,111,111,113,114,114,115,115,116,116,118,118,119,119,120,120,120,122,122,123,123,123,124,124,124,124,125,125,125,125,127,127,127,127,127,127,128,128,128,128,128,128,128
+    even
+table_tan_fixed__:
+    dc.w 0,1,3,5,6,8,9,12,13,14,15,18,19,20,22,24,26,27,28,31,32,33,36,37,38,41,42,44,46,47,50,51,52,55,56,59,60,63,64,67,68,70,73,74,77,79,81,83,86,88,90,92,95,97,100,102,105,108,110,113,116,119,122,124,128,131,134,138,141,145,148,152,156,160,164,168,173,177,182,187,191,196,202,207,214,219,225,232,239,246,253,261,270,279,288,298,308,319,330,343,357,371,387,403,420,439,461,484
+    dc.w 508,536,567,602,640,684,732,790,856,934,1028,1142,1284,1466,1706,2042,2541,3360,4956,9439,32701,-11675,-5510,-3606,-2679,-2130,-1768,-1510,-1318,-1169,-1050,-952,-872,-803,-744,-692,-649,-609,-573,-543,-515,-489,-466,-444,-424,-406,-389,-374,-360,-346,-333,-321,-311,-300,-291,-280,-271,-264,-256,-248,-241,-233,-227,-220,-215,-209,-204,-197,-192,-187,-183,-178,-173,-169,-165,-160,-156,-152,-148,-146,-142,-138,-134,-132,-128,-125,-123,-119,-116,-114
+    dc.w -111,-108,-105,-102,-100,-97,-95,-93,-91,-88,-86,-83,-82,-79,-77,-76,-73,-70,-69,-67,-65,-63,-61,-59,-58,-55,-54,-51,-50,-47,-46,-45,-42,-41,-40,-37,-36,-35,-32,-31,-29,-27,-26,-24,-23,-20,-19,-18,-17,-14,-13,-12,-10,-8,-6,-5,-4,-1
+    dc.w 0,1,3,4,6,8,9,10,13,14,15,17,19,20,22,23,26,27,28,29,32,33,35,37,38,40,42,44,45,47,49,51,52,55,56,58,60,61,64,67,68,70,72,74,77,78,81,83,84,87,90,92,95,97,100,102,105,108,110,113,115,118,122,124,127,131,133,137,141,143,147,151,155,159,163,168,172,175,180,186,191,196,201,206,212,218,224,230,238,244,252,260,269,276,285,296,306,316,328,340,353,367,383,399,416,435
+    dc.w 456,479,503,530,561,594,631,673,722,777,841,916,1006,1115,1251,1423,1649,1961,2415,3145,4503,7922,32745,-15296,-6204,-3890,-2833,-2227,-1834,-1559,-1354,-1198,-1073,-972,-887,-817,-755,-703,-658,-617,-581,-549,-520,-494,-470,-448,-429,-410,-393,-378,-362,-349,-337,-324,-312,-302,-292,-283,-274,-265,-257,-250,-242,-236,-228,-221,-215,-210,-204,-198,-193,-188,-183,-179,-174,-170,-165,-161,-157,-154,-150,-146,-142,-140,-136,-132,-129,-125,-123
+    dc.w -120,-116,-114,-111,-109,-106,-104,-101,-99,-96,-93,-91,-88,-87,-84,-82,-79,-78,-76,-73,-72,-69,-67,-65,-63,-61,-59,-58,-55,-54,-52,-50,-49,-46,-45,-44,-41,-40,-38,-36,-35,-33,-31,-29,-28,-26,-24,-23,-22,-19,-18,-17,-15,-13,-12,-10,-9,-6,-5,-4,-3
     even
 setas_cores:
     dc.w $0000,$020E,$04A2,$0C42,$0000,$0000,$0000,$0000
