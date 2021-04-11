@@ -1,51 +1,57 @@
 align macro
      cnop 0,\1
      endm
-end_global_table equ $ff063c
+end_global_table equ $ff296e
 ;dim ram_pointer as long
 _global_ram_pointer equ $ff0000
-;dim dx as signed fixed 
-_global_dx equ $ff0004
-;dim dy as signed fixed 
-_global_dy equ $ff0006
-;dim radius as signed fixed = 20
-_global_radius equ $ff0008
-; Auto Declaracao variavel -> x = 288
-_global_x equ $ff000a
-; Auto Declaracao variavel -> y = 240
-_global_y equ $ff000c
-; Auto Declaracao variavel -> waitvbl = 0
-_global_waitvbl equ $ff000e
-; Auto Declaracao variavel -> angle = 0
-_global_angle equ $ff0010
-; Auto Declaracao variavel ->  j = joypad6b_read(0)
-_global_j equ $ff0012
+;dim camera as integer = 0 'Posicao da Camera em Tiles
+_global_camera equ $ff0004
+;dim frame  as integer = 0 'Contagem dos frames para temporizacao das animacoes
+_global_frame equ $ff0006
+;dim anima_tiles1 as integer = 0 'Contagem dos quadros de animacao de 4 frames
+_global_anima_tiles1 equ $ff0008
+;dim anima_tiles2 as integer = 0 'Contagem dos quadros de animacao de 5 frames
+_global_anima_tiles2 equ $ff000a
+;dim anima_dave   as integer = 0 'Contagem dos quadros de animacao do Sprite
+_global_anima_dave equ $ff000c
+;dim gravidade    as integer = 0 'Aceleracao no eixo Y (Gravidade)
+_global_gravidade equ $ff000e
+;dim dirx     as integer = 0 'Aceleracao no Eixo X
+_global_dirx equ $ff0010
+;dim score    as integer = 0 'Score
+_global_score equ $ff0012
+;dim x_scroll as integer = 0 'Posicao da scroll Plane
+_global_x_scroll equ $ff0014
+;dim dave as new char_ ' Matriz indexada 
+_global_dave equ $ff0016
+;dim tile_map_ram [200,20] as integer ' Tile Map na RAM (evitar uso para mapas muito grandes)
+_global_tile_map_ram equ $ff0022
+;dim colision_vector[100,10] as byte  ' Mapa de colisores
+_global_colision_vector equ $ff1f62
+;dim level_index as integer = 0 ' Zero = Level 1
+_global_level_index equ $ff234a
+;dim frame_c as integer = 0 
+_global_frame_c equ $ff234c
+;dim v_count as integer = 0
+_global_v_count equ $ff234e
+;dim frame_rate as integer = 0
+_global_frame_rate equ $ff2350
+; Auto Declaracao variavel ->  vbl = 1             ' Sobe um Flag que e limpo na Interrupcao por V_blank
+_global_vbl equ $ff2352
 ;dim sprite_table[80] as new sprite_shape 'Buffer para a Sprite Table na RAM
-_global_sprite_table equ $ff0014
+_global_sprite_table equ $ff2354
 ;dim buff_dma[3] as long ' Buffer na RAM que serve de construtor para os comandos do DMA
-_global_buff_dma equ $ff0294
+_global_buff_dma equ $ff25d4
 ;dim H_scroll_buff[448] as integer ' Buffer para a  scroll table
-_global_H_scroll_buff equ $ff02a0
+_global_H_scroll_buff equ $ff25e0
 ;dim planes_addr[3] as integer '0=0 1=1 2=Plane_Win
-_global_planes_addr equ $ff0620
+_global_planes_addr equ $ff2960
 ;dim sprite_table_addr as integer
-_global_sprite_table_addr equ $ff0626
+_global_sprite_table_addr equ $ff2966
 ;dim scroll_table_addr as integer
-_global_scroll_table_addr equ $ff0628
+_global_scroll_table_addr equ $ff2968
 ;dim vdp_conf_table_addr as long
-_global_vdp_conf_table_addr equ $ff062a
-;dim _print_cursor as integer
-_global__print_cursor equ $ff062e
-;dim _print_plane  as integer
-_global__print_plane equ $ff0630
-;dim _print_pallet as integer
-_global__print_pallet equ $ff0632
-;dim __dma_queue_lenght__ as integer
-_global___dma_queue_lenght__ equ $ff0634
-;dim __dma_queue_max_lenght__ as integer
-_global___dma_queue_max_lenght__ equ $ff0636
-;dim __DMA_queue_buff_addr__ as long
-_global___DMA_queue_buff_addr__ equ $ff0638
+_global_vdp_conf_table_addr equ $ff296a
 
 ;------------------------
 ;  Header Vector Table  -
@@ -86,275 +92,2594 @@ _global___DMA_queue_buff_addr__ equ $ff0638
     dc.l trap_14_vector
     dc.l trap_15_vector
 
-    ;imports "\system\genesis_header.asm" ' Header de uma ROM de mega Drive Padrao (deve ficar sempre no topo)
+    ;imports"\system\genesis_header.asm" ' Header de uma ROM de mega Drive Padrao (deve ficar sempre no topo)
     include "C:\workbench\Alcatech_NextBasic_Bin\compiler\system\genesis_header.asm"
 
-    ;std_init()   'Inicializa o VDP
+    ;std_init()
     bsr std_init
 
-    ;print_init() 'Carrega a fonte para a VRAM
-    bsr print_init
-
-    ;print("  Por enquanto ta tudo tranquilo  o.O  ")
-    move.l #const_string_0_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ;dma_Queue_init(10)
-    move.w #10,-(a7)
-    bsr dma_Queue_init
-    addq #2,a7
-
-    ;dma_add_Queue(addressof(setas_sprites),32,256)    'Carrega 32 TILES na posicao 1 da VRAM (nunca usar a posicao Zero!)
-    move.l #256,-(a7)
-    move.w #32,-(a7)
-    move.l #setas_sprites,-(a7)
-    bsr dma_add_Queue
+    ;load_tiles_DMA_128ksafe(addressof(tiles),204,1)
+    move.l #1,-(a7)
+    move.w #204,-(a7)
+    move.l #tiles,-(a7)
+    bsr load_tiles_DMA_128ksafe
     lea 10(a7),a7
-    move.w #(2560),_global_radius
 
-    ;x = 288
-    move.w #288,_global_x
+    ;load_tiles_DMA_128ksafe(addressof(dave_data),36,205)
+    move.l #205,-(a7)
+    move.w #36,-(a7)
+    move.l #dave_data,-(a7)
+    bsr load_tiles_DMA_128ksafe
+    lea 10(a7),a7
 
-    ;y = 240
-    move.w #240,_global_y
+    ;load_tiles_DMA_128ksafe(addressof(numeros),10,241)
+    move.l #241,-(a7)
+    move.w #10,-(a7)
+    move.l #numeros,-(a7)
+    bsr load_tiles_DMA_128ksafe
+    lea 10(a7),a7
 
-    ;set_sprite_size(0,0,0)
-    move.w #0,-(a7)
-    move.w #0,-(a7)
-    move.w #0,-(a7)
+    ;load_cram_DMA_128ksafe(addressof(paletatile0),64,0)
+    move.l #0,-(a7)
+    move.w #64,-(a7)
+    move.l #paletatile0,-(a7)
+    bsr load_cram_DMA_128ksafe
+    lea 10(a7),a7
+    move.w #0,_global_camera
+    move.w #0,_global_frame
+    move.w #0,_global_anima_tiles1
+    move.w #0,_global_anima_tiles2
+    move.w #0,_global_anima_dave
+    move.w #0,_global_gravidade
+    move.w #0,_global_dirx
+    move.w #0,_global_score
+    move.w #0,_global_x_scroll
+    move.w #0,_global_level_index
+    move.w #0,_global_frame_c
+    move.w #0,_global_v_count
+    move.w #0,_global_frame_rate
+
+    ;dave.sprite = 0 ' Atribui o indice Zero na Sprite table para o sprite do personagem
+    move.w #0,(_global_dave+4)
+
+    ;dave.hjump  = 0 ' Zera altura do Pulo
+    move.w #0,(_global_dave+6)
+
+    ;dave.flags  = 0 ' Zera os Flags
+    move.w #0,(_global_dave+10)
+
+    ;set_sprite_size(dave.sprite,1,1)  ' Sprite 16x16 Pixels
+    move.w #1,-(a7)
+    move.w #1,-(a7)
+    move.w (_global_dave+4),-(a7)
     bsr set_sprite_size
     addq #6,a7
 
-    ;set_sprite_gfx(0,2,0)
-    move.w #0,-(a7)
+    ;set_sprite_gfx(dave.sprite,205,2) ' Desenhado com a Paleta 02
     move.w #2,-(a7)
-    move.w #0,-(a7)
+    move.w #205,-(a7)
+    move.w (_global_dave+4),-(a7)
     bsr set_sprite_gfx
     addq #6,a7
 
-    ;set_sprite_size(1,0,0)
-    move.w #0,-(a7)
-    move.w #0,-(a7)
-    move.w #1,-(a7)
-    bsr set_sprite_size
-    addq #6,a7
+    ;load_level(tile_map_ram,colision_vector,level_index) 'Carrega o primeiro nivel
+    move.w _global_level_index,-(a7)
+    move.l #_global_colision_vector,-(a7)
+    move.l #_global_tile_map_ram,-(a7)
+    bsr load_level
+    lea 10(a7),a7
 
-    ;set_sprite_gfx(1,1,0)
-    move.w #0,-(a7)
-    move.w #1,-(a7)
-    move.w #1,-(a7)
-    bsr set_sprite_gfx
-    addq #6,a7
-
-    ;set_sprite_position(1,x,y)
-    move.w _global_y,-(a7)
-    move.w _global_x,-(a7)
-    move.w #1,-(a7)
-    bsr set_sprite_position
-    addq #6,a7
-
-    ;waitvbl = 0
-    move.w #0,_global_waitvbl
-
-    ;enable_global_int() 'Ativa interrupcoes globais
+    ;enable_global_int() ' Interrupcao por Vblank
     bsr enable_global_int
 
-    ;angle = 0
-    move.w #0,_global_angle
-
-    ;do
+    ;Do 'main
 lbl_do_1_start:
 
-    ; j = joypad6b_read(0)
-    move.w #0,-(a7)
-    bsr joypad6b_read
-    addq #2,a7
-    move.w d7,_global_j
+    ; input_thread()    ' Joystick e Direcoes
+    bsr input_thread
 
-    ; if bit_test(j, 0) then
-    move.w _global_j,d0
-    btst #0,d0
-    sne d0
+    ; check_colision()  ' Colisao e posicoes
+    bsr check_colision
+
+    ; draw_score()      ' Printa na tela o Score 
+    bsr draw_score
+
+    ; draw_frame_rate() ' Printa na tela o Frame Rate
+    bsr draw_frame_rate
+
+    ; if dave.x > 816 then scroll_right()               ' Movimenta a camera para a Direita
+    move.w (_global_dave+0),d0
+    cmp.w #816,d0
+    shi d0
     and.w #$01,d0
     dbra d0,lbl_if_true_1
     bra lbl_if_false_1
 lbl_if_true_1:
 
-    ;  radius+=1
-    move.w #(128),d0
-    add.w d0,_global_radius
-    bra lbl_if_end_1
+    ; if dave.x > 816 then scroll_right()               ' Movimenta a camera para a Direita
+    bsr scroll_right
 lbl_if_false_1:
 
-    ; elseif bit_test(j, 1) then
-    move.w _global_j,d0
-    btst #1,d0
+    ; if dave.x < 312 and camera>16 then  scroll_left() ' Movimenta a camera para a Esquerda
+    move.w (_global_dave+0),d0
+    cmp.w #312,d0
+    scs d0
+    and.w #$01,d0
+    move.w _global_camera,d1
+    cmp.w #16,d1
+    shi d1
+    and.w #$01,d1
+    and.w d1,d0
+    dbra d0,lbl_if_true_2
+    bra lbl_if_false_2
+lbl_if_true_2:
+
+    ; if dave.x < 312 and camera>16 then  scroll_left() ' Movimenta a camera para a Esquerda
+    bsr scroll_left
+lbl_if_false_2:
+
+    ; frame   +=1       ' Conta os Frames Renderizados Para temporizacao das animacoes
+    moveq #1,d0
+    add.w d0,_global_frame
+
+    ; frame_c +=1       ' Conta os Frames Renderizados para calculo do Frame Rate
+    moveq #1,d0
+    add.w d0,_global_frame_c
+
+    ; if frame > 4 then anima_cenario() ' Completou o intervalo de tempo entre as animacoes?
+    move.w _global_frame,d0
+    cmp.w #4,d0
+    shi d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_3
+    bra lbl_if_false_3
+lbl_if_true_3:
+
+    ; if frame > 4 then anima_cenario() ' Completou o intervalo de tempo entre as animacoes?
+    bsr anima_cenario
+lbl_if_false_3:
+
+    ; if bit_test(dave.flags,5) then ' Jogador passou de nivel?
+    move.w (_global_dave+10),d0
+    btst #5,d0
     sne d0
     and.w #$01,d0
-    dbra d0,lbl_elseif_true_2
-    bra lbl_elseif_false_2
-lbl_elseif_true_2:
+    dbra d0,lbl_if_true_4
+    bra lbl_if_false_4
+lbl_if_true_4:
 
-    ;  radius-=1
-    move.w #(128),d0
-    sub.w d0,_global_radius
-    bra lbl_if_end_1
-lbl_elseif_false_2:
-lbl_if_end_1:
+    ;  if level_index>9 then level_index = 0
+    move.w _global_level_index,d0
+    cmp.w #9,d0
+    shi d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_5
+    bra lbl_if_false_5
+lbl_if_true_5:
 
-    ; angle += 2
-    moveq #2,d0
-    add.w d0,_global_angle
+    ;  if level_index>9 then level_index = 0
+    move.w #0,_global_level_index
+lbl_if_false_5:
 
-    ; angle &= 511
-    move.w #511,d0
-    and.w d0,_global_angle
+    ;  load_level(tile_map_ram,colision_vector,level_index) 
+    move.w _global_level_index,-(a7)
+    move.l #_global_colision_vector,-(a7)
+    move.l #_global_tile_map_ram,-(a7)
+    bsr load_level
+    lea 10(a7),a7
+    bra lbl_if_end_4
+lbl_if_false_4:
+lbl_if_end_4:
 
-    ;dx = cos(angle) * radius
-    move.w _global_angle,-(a7)
-    bsr cos
-    addq #2,a7
-    muls _global_radius,d7
-    asr.l #7,d7
-    move.w d7,_global_dx
-
-    ;dy = sen(angle) * radius
-    move.w _global_angle,-(a7)
-    bsr sen
-    addq #2,a7
-    muls _global_radius,d7
-    asr.l #7,d7
-    move.w d7,_global_dy
-
-    ;set_cursor_position(0,1)
-    move.w #1,-(a7)
-    move.w #0,-(a7)
-    bsr set_cursor_position
-    addq #4,a7
-
-    ;print("Seno  : ") : print_signed_fixed(dx) : print("     ")
-    move.l #const_string_1_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ;print("Seno  : ") : print_signed_fixed(dx) : print("     ")
-    move.w _global_dx,-(a7)
-    bsr print_signed_fixed
-    addq #2,a7
-
-    ;print("Seno  : ") : print_signed_fixed(dx) : print("     ")
-    move.l #const_string_2_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ;set_cursor_position(0,2)
-    move.w #2,-(a7)
-    move.w #0,-(a7)
-    bsr set_cursor_position
-    addq #4,a7
-
-    ;print("Coseno: ") : print_signed_fixed(dy) : print("     ")
-    move.l #const_string_3_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ;print("Coseno: ") : print_signed_fixed(dy) : print("     ")
-    move.w _global_dy,-(a7)
-    bsr print_signed_fixed
-    addq #2,a7
-
-    ;print("Coseno: ") : print_signed_fixed(dy) : print("     ")
-    move.l #const_string_4_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ;set_cursor_position(0,3)
-    move.w #3,-(a7)
-    move.w #0,-(a7)
-    bsr set_cursor_position
-    addq #4,a7
-
-    ;print("Raio  : ") : print_signed_fixed(radius) : print("     ")
-    move.l #const_string_5_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ;print("Raio  : ") : print_signed_fixed(radius) : print("     ")
-    move.w _global_radius,-(a7)
-    bsr print_signed_fixed
-    addq #2,a7
-
-    ;print("Raio  : ") : print_signed_fixed(radius) : print("     ")
-    move.l #const_string_6_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ;set_cursor_position(0,4)
-    move.w #4,-(a7)
-    move.w #0,-(a7)
-    bsr set_cursor_position
-    addq #4,a7
-
-    ;print("Angulo: ") : print_var(angle) : print("     ")
-    move.l #const_string_7_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ;print("Angulo: ") : print_var(angle) : print("     ")
-    move.w _global_angle,-(a7)
-    bsr print_var
-    addq #2,a7
-
-    ;print("Angulo: ") : print_var(angle) : print("     ")
-    move.l #const_string_8_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ; set_sprite_position(0, x+dx, y+dy)
-    move.w _global_dy,d0
-    lsr.w #7,d0
-    add.w _global_y,d0
+    ; set_sprite_position(dave.sprite,dave.x>>1,dave.y>>1)
+    move.w (_global_dave+2),d0
+    lsr.w #1,d0
     move.w d0,-(a7)
-    move.w _global_dx,d0
-    lsr.w #7,d0
-    add.w _global_x,d0
+    move.w (_global_dave+0),d0
+    lsr.w #1,d0
     move.w d0,-(a7)
-    move.w #0,-(a7)
+    move.w (_global_dave+4),-(a7)
     bsr set_sprite_position
     addq #6,a7
 
-    ; waitvbl = 1
-    move.w #1,_global_waitvbl
+    ; vbl = 1             ' Sobe um Flag que e limpo na Interrupcao por V_blank
+    move.w #1,_global_vbl
 
-    ; while(waitvbl)_asm("nop")
+    ; while(vbl) : wend   ' Trava o FPS em no Maximo 60 Frames por segundo
 lbl_while_start_1:
-    tst.w _global_waitvbl
+    tst.w _global_vbl
     bne lbl_while_true_1
     bra lbl_while_false_1
 lbl_while_true_1:
-
-    ; while(waitvbl)_asm("nop")
-    nop
     bra lbl_while_start_1
+
+    ; while(vbl) : wend   ' Trava o FPS em no Maximo 60 Frames por segundo
 lbl_while_false_1:
     bra lbl_do_1_start
 lbl_do_1_end:
 
-    ;loop
+    ;Loop ' Laco infinito
+
+    ;sub scroll_right() ' Animacao de transicao do cenario para a Direita
+scroll_right:
+; Auto Declaracao variavel ->  for i=0 to 15     'Scroll de 15 blocos
+_local_i set -2
+; Auto Declaracao variavel ->  for y = 0 to 20 ' Desenha uma linha vertical de 16 Pixels de largura na margem direita da tela
+_local_y set -4
+    link a6,#-4
+
+    ; for i=0 to 15     'Scroll de 15 blocos
+    moveq #0,d0
+    move.w d0,(_local_i,a6)
+lbl_for_1_start:
+    move.w (_local_i,a6),d0
+    cmp.w #15,d0
+    beq lbl_for_1_end
+
+    ; for y = 0 to 20 ' Desenha uma linha vertical de 16 Pixels de largura na margem direita da tela
+    moveq #0,d0
+    move.w d0,(_local_y,a6)
+lbl_for_2_start:
+    move.w (_local_y,a6),d0
+    cmp.w #20,d0
+    beq lbl_for_2_end
+
+    ; draw_tile(tile_map_ram[camera + 40 ,y], (camera + 40) and 63 ,y, 1)
+    move.w #1,-(a7)
+    move.w (_local_y,a6),-(a7)
+    move.w _global_camera,d0
+    add.w #40,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w _global_camera,d0
+    add.w #40,d0
+    move.w (_local_y,a6),d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w 0(a0,d0.w),-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ; draw_tile(tile_map_ram[camera + 41 ,y], (camera + 41) and 63 ,y, 1)
+    move.w #1,-(a7)
+    move.w (_local_y,a6),-(a7)
+    move.w _global_camera,d0
+    add.w #41,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w _global_camera,d0
+    add.w #41,d0
+    move.w (_local_y,a6),d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w 0(a0,d0.w),-(a7)
+    bsr draw_tile
+    addq #8,a7
+    moveq #1,d0
+    add.w d0,(_local_y,a6)
+    bra lbl_for_2_start
+
+    ; next
+lbl_for_2_end:
+
+    ; x_scroll += 16
+    moveq #16,d0
+    add.w d0,_global_x_scroll
+
+    ; dave.x  -= 32
+    moveq #32,d0
+    sub.w d0,(_global_dave+0)
+
+    ; camera  += 2
+    moveq #2,d0
+    add.w d0,_global_camera
+
+    ; frame_c +=1 'A contagem de frames tambem tem que acontecer durante a animacao dos cenarios
+    moveq #1,d0
+    add.w d0,_global_frame_c
+
+    ; set_sprite_position(dave.sprite,dave.x>>1,dave.y>>1)
+    move.w (_global_dave+2),d0
+    lsr.w #1,d0
+    move.w d0,-(a7)
+    move.w (_global_dave+0),d0
+    lsr.w #1,d0
+    move.w d0,-(a7)
+    move.w (_global_dave+4),-(a7)
+    bsr set_sprite_position
+    addq #6,a7
+
+    ; Set_HorizontalScroll_position(x_scroll AND 511,1)
+    move.w #1,-(a7)
+    move.w _global_x_scroll,d0
+    and.w #511,d0
+    move.w d0,-(a7)
+    bsr Set_HorizontalScroll_position
+    addq #4,a7
+
+    ; vbl=1
+    move.w #1,_global_vbl
+
+    ; while(vbl) : wend
+lbl_while_start_2:
+    tst.w _global_vbl
+    bne lbl_while_true_2
+    bra lbl_while_false_2
+lbl_while_true_2:
+    bra lbl_while_start_2
+
+    ; while(vbl) : wend
+lbl_while_false_2:
+    moveq #1,d0
+    add.w d0,(_local_i,a6)
+    bra lbl_for_1_start
+
+    ; next 
+lbl_for_1_end:
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub scroll_left() ' Animacao de transicao do cenario para a Esquerda
+scroll_left:
+; Auto Declaracao variavel ->  for i=0 to 15    'Scroll de 15 blocos
+_local_i set -2
+; Auto Declaracao variavel ->  for y = 0 to 20 ' Desenha uma linha vertical de 16 Pixels de largura na margem esquerda da tela
+_local_y set -4
+    link a6,#-4
+
+    ; for i=0 to 15    'Scroll de 15 blocos
+    moveq #0,d0
+    move.w d0,(_local_i,a6)
+lbl_for_3_start:
+    move.w (_local_i,a6),d0
+    cmp.w #15,d0
+    beq lbl_for_3_end
+
+    ; for y = 0 to 20 ' Desenha uma linha vertical de 16 Pixels de largura na margem esquerda da tela
+    moveq #0,d0
+    move.w d0,(_local_y,a6)
+lbl_for_4_start:
+    move.w (_local_y,a6),d0
+    cmp.w #20,d0
+    beq lbl_for_4_end
+
+    ; draw_tile(tile_map_ram[camera-1 ,y], (camera-1) and 63 ,y, 1)
+    move.w #1,-(a7)
+    move.w (_local_y,a6),-(a7)
+    move.w _global_camera,d0
+    subq #1,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w _global_camera,d0
+    subq #1,d0
+    move.w (_local_y,a6),d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w 0(a0,d0.w),-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ; draw_tile(tile_map_ram[camera-2 ,y], (camera-2) and 63 ,y, 1)
+    move.w #1,-(a7)
+    move.w (_local_y,a6),-(a7)
+    move.w _global_camera,d0
+    subq #2,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w _global_camera,d0
+    subq #2,d0
+    move.w (_local_y,a6),d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w 0(a0,d0.w),-(a7)
+    bsr draw_tile
+    addq #8,a7
+    moveq #1,d0
+    add.w d0,(_local_y,a6)
+    bra lbl_for_4_start
+
+    ; next 
+lbl_for_4_end:
+
+    ; x_scroll -= 16
+    moveq #16,d0
+    sub.w d0,_global_x_scroll
+
+    ; dave.x  += 32
+    moveq #32,d0
+    add.w d0,(_global_dave+0)
+
+    ; camera  -= 2
+    moveq #2,d0
+    sub.w d0,_global_camera
+
+    ; frame_c +=1  'A contagem de frames tambem tem que acontecer durante a animacao dos cenarios
+    moveq #1,d0
+    add.w d0,_global_frame_c
+
+    ; set_sprite_position(dave.sprite,dave.x>>1,dave.y>>1)
+    move.w (_global_dave+2),d0
+    lsr.w #1,d0
+    move.w d0,-(a7)
+    move.w (_global_dave+0),d0
+    lsr.w #1,d0
+    move.w d0,-(a7)
+    move.w (_global_dave+4),-(a7)
+    bsr set_sprite_position
+    addq #6,a7
+
+    ; Set_HorizontalScroll_position(x_scroll AND 511,1)
+    move.w #1,-(a7)
+    move.w _global_x_scroll,d0
+    and.w #511,d0
+    move.w d0,-(a7)
+    bsr Set_HorizontalScroll_position
+    addq #4,a7
+
+    ; vbl=1
+    move.w #1,_global_vbl
+
+    ; while(vbl) : wend
+lbl_while_start_3:
+    tst.w _global_vbl
+    bne lbl_while_true_3
+    bra lbl_while_false_3
+lbl_while_true_3:
+    bra lbl_while_start_3
+
+    ; while(vbl) : wend
+lbl_while_false_3:
+    moveq #1,d0
+    add.w d0,(_local_i,a6)
+    bra lbl_for_3_start
+
+    ; next 
+lbl_for_3_end:
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub draw_frame_rate()
+draw_frame_rate:
+; Auto Declaracao variavel ->  centena = frame_rate  /  100
+_local_centena set -2
+; Auto Declaracao variavel ->  dezenap = frame_rate mod 100
+_local_dezenap set -4
+; Auto Declaracao variavel ->  dezena = dezenap / 10
+_local_dezena set -6
+; Auto Declaracao variavel ->  unidade = dezenap mod 10
+_local_unidade set -8
+    link a6,#-8
+
+    ; centena = frame_rate  /  100
+    moveq #0,d0
+    move.w _global_frame_rate,d0
+    divu #100,d0
+    move.w d0,(_local_centena,a6)
+
+    ; dezenap = frame_rate mod 100
+    moveq #0,d0
+    move.w _global_frame_rate,d0
+    divu #100,d0
+    swap d0
+    move.w d0,(_local_dezenap,a6)
+
+    ; dezena = dezenap / 10
+    moveq #0,d0
+    move.w (_local_dezenap,a6),d0
+    divu #10,d0
+    move.w d0,(_local_dezena,a6)
+
+    ; unidade = dezenap mod 10
+    moveq #0,d0
+    move.w (_local_dezenap,a6),d0
+    divu #10,d0
+    swap d0
+    move.w d0,(_local_unidade,a6)
+
+    ; draw_tile( ( centena+241 ) or 3<<13 , 37 , 21 , 0)
+    move.w #0,-(a7)
+    move.w #21,-(a7)
+    move.w #37,-(a7)
+    move.w (_local_centena,a6),d0
+    add.w #241,d0
+    or.w #(3<<13),d0
+    move.w d0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ; draw_tile( (  dezena+241 ) or 3<<13 , 38 , 21 , 0)
+    move.w #0,-(a7)
+    move.w #21,-(a7)
+    move.w #38,-(a7)
+    move.w (_local_dezena,a6),d0
+    add.w #241,d0
+    or.w #(3<<13),d0
+    move.w d0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ; draw_tile( ( unidade+241 ) or 3<<13 , 39 , 21 , 0)
+    move.w #0,-(a7)
+    move.w #21,-(a7)
+    move.w #39,-(a7)
+    move.w (_local_unidade,a6),d0
+    add.w #241,d0
+    or.w #(3<<13),d0
+    move.w d0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub Draw_score()
+Draw_score:
+; Auto Declaracao variavel ->  centena = score  /  100
+_local_centena set -2
+; Auto Declaracao variavel ->  dezenap = score mod 100
+_local_dezenap set -4
+; Auto Declaracao variavel ->  dezena = dezenap / 10
+_local_dezena set -6
+; Auto Declaracao variavel ->  unidade = dezenap mod 10
+_local_unidade set -8
+    link a6,#-8
+
+    ; centena = score  /  100
+    moveq #0,d0
+    move.w _global_score,d0
+    divu #100,d0
+    move.w d0,(_local_centena,a6)
+
+    ; dezenap = score mod 100
+    moveq #0,d0
+    move.w _global_score,d0
+    divu #100,d0
+    swap d0
+    move.w d0,(_local_dezenap,a6)
+
+    ; dezena = dezenap / 10
+    moveq #0,d0
+    move.w (_local_dezenap,a6),d0
+    divu #10,d0
+    move.w d0,(_local_dezena,a6)
+
+    ; unidade = dezenap mod 10
+    moveq #0,d0
+    move.w (_local_dezenap,a6),d0
+    divu #10,d0
+    swap d0
+    move.w d0,(_local_unidade,a6)
+
+    ; draw_tile( ( centena+241 ) or 3<<13 , 35 , 20 , 0)
+    move.w #0,-(a7)
+    move.w #20,-(a7)
+    move.w #35,-(a7)
+    move.w (_local_centena,a6),d0
+    add.w #241,d0
+    or.w #(3<<13),d0
+    move.w d0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ; draw_tile( (  dezena+241 ) or 3<<13 , 36 , 20 , 0)
+    move.w #0,-(a7)
+    move.w #20,-(a7)
+    move.w #36,-(a7)
+    move.w (_local_dezena,a6),d0
+    add.w #241,d0
+    or.w #(3<<13),d0
+    move.w d0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ; draw_tile( ( unidade+241 ) or 3<<13 , 37 , 20 , 0)
+    move.w #0,-(a7)
+    move.w #20,-(a7)
+    move.w #37,-(a7)
+    move.w (_local_unidade,a6),d0
+    add.w #241,d0
+    or.w #(3<<13),d0
+    move.w d0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ; draw_tile(             241 or 3<<13 , 38 , 20 , 0)
+    move.w #0,-(a7)
+    move.w #20,-(a7)
+    move.w #38,-(a7)
+    move.w #(241|(3<<13)),-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ; draw_tile(             241 or 3<<13 , 39 , 20 , 0)
+    move.w #0,-(a7)
+    move.w #20,-(a7)
+    move.w #39,-(a7)
+    move.w #(241|(3<<13)),-(a7)
+    bsr draw_tile
+    addq #8,a7
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub anima_cenario()  
+anima_cenario:
+; dim gfx as integer
+_local_gfx set -2
+    link a6,#-2
+
+    ; load_tiles_DMA_128ksafe((addressof(tiles) + 132*32)+(anima_tiles2<<7),4,133) ' Agua
+    move.l #133,-(a7)
+    move.w #4,-(a7)
+    moveq #0,d0
+    move.w _global_anima_tiles2,d0
+    lsl.l #7,d0
+    add.l #(tiles+(132*32)),d0
+    move.l d0,-(a7)
+    bsr load_tiles_DMA_128ksafe
+    lea 10(a7),a7
+
+    ; load_tiles_DMA_128ksafe((addressof(tiles) + 152*32)+(anima_tiles2<<7),4,153) ' Trofeu
+    move.l #153,-(a7)
+    move.w #4,-(a7)
+    moveq #0,d0
+    move.w _global_anima_tiles2,d0
+    lsl.l #7,d0
+    add.l #(tiles+(152*32)),d0
+    move.l d0,-(a7)
+    bsr load_tiles_DMA_128ksafe
+    lea 10(a7),a7
+
+    ; load_tiles_DMA_128ksafe((addressof(tiles) + 172*32)+(anima_tiles1<<7),4,173) ' Fogo
+    move.l #173,-(a7)
+    move.w #4,-(a7)
+    moveq #0,d0
+    move.w _global_anima_tiles1,d0
+    lsl.l #7,d0
+    add.l #(tiles+(172*32)),d0
+    move.l d0,-(a7)
+    bsr load_tiles_DMA_128ksafe
+    lea 10(a7),a7
+
+    ; load_tiles_DMA_128ksafe((addressof(tiles) + 188*32)+(anima_tiles1<<7),4,189) ' Plantas
+    move.l #189,-(a7)
+    move.w #4,-(a7)
+    moveq #0,d0
+    move.w _global_anima_tiles1,d0
+    lsl.l #7,d0
+    add.l #(tiles+(188*32)),d0
+    move.l d0,-(a7)
+    bsr load_tiles_DMA_128ksafe
+    lea 10(a7),a7
+
+    ; anima_tiles2 +=1
+    moveq #1,d0
+    add.w d0,_global_anima_tiles2
+
+    ; anima_tiles1 +=1
+    moveq #1,d0
+    add.w d0,_global_anima_tiles1
+
+    ; anima_dave   +=1
+    moveq #1,d0
+    add.w d0,_global_anima_dave
+
+    ; if anima_tiles2 > 4 then anima_tiles2 = 0
+    move.w _global_anima_tiles2,d0
+    cmp.w #4,d0
+    shi d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_6
+    bra lbl_if_false_6
+lbl_if_true_6:
+
+    ; if anima_tiles2 > 4 then anima_tiles2 = 0
+    move.w #0,_global_anima_tiles2
+lbl_if_false_6:
+
+    ; if anima_tiles1 > 3 then anima_tiles1 = 0
+    move.w _global_anima_tiles1,d0
+    cmp.w #3,d0
+    shi d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_7
+    bra lbl_if_false_7
+lbl_if_true_7:
+
+    ; if anima_tiles1 > 3 then anima_tiles1 = 0
+    move.w #0,_global_anima_tiles1
+lbl_if_false_7:
+
+    ; if anima_dave   > 2 then anima_dave   = 0
+    move.w _global_anima_dave,d0
+    cmp.w #2,d0
+    shi d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_8
+    bra lbl_if_false_8
+lbl_if_true_8:
+
+    ; if anima_dave   > 2 then anima_dave   = 0
+    move.w #0,_global_anima_dave
+lbl_if_false_8:
+
+    ; if bit_test(dave.flags,1) OR bit_test(dave.flags,0) then
+    move.w (_global_dave+10),d0
+    btst #1,d0
+    sne d0
+    and.w #$01,d0
+    move.w (_global_dave+10),d1
+    btst #0,d1
+    sne d1
+    and.w #$01,d1
+    or.w d1,d0
+    dbra d0,lbl_if_true_9
+    bra lbl_if_false_9
+lbl_if_true_9:
+
+    ; gfx = 221                   ' Sprite Caindo
+    move.w #221,(_local_gfx,a6)
+    bra lbl_if_end_9
+lbl_if_false_9:
+
+    ; elseif dirx then
+    tst.w _global_dirx
+    bne lbl_elseif_true_10
+    bra lbl_elseif_false_10
+lbl_elseif_true_10:
+
+    ; gfx = 205 + (anima_dave<<2) ' Sprite Andando
+    move.w _global_anima_dave,d0
+    add.w d0,d0
+    add.w d0,d0
+    add.w #205,d0
+    move.w d0,(_local_gfx,a6)
+    bra lbl_if_end_9
+lbl_elseif_false_10:
+
+    ; else
+
+    ; gfx = 209                   ' Sprite Parado
+    move.w #209,(_local_gfx,a6)
+lbl_if_end_9:
+
+    ; set_sprite_gfx(dave.sprite,gfx or dave.flip,2)
+    move.w #2,-(a7)
+    move.w (_local_gfx,a6),d0
+    or.w (_global_dave+8),d0
+    move.w d0,-(a7)
+    move.w (_global_dave+4),-(a7)
+    bsr set_sprite_gfx
+    addq #6,a7
+
+    ; frame = 0 ' Zera a variavel de contagem para a temporizacao das animacoes
+    move.w #0,_global_frame
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub load_level(byref _ram_map_ as integer , byref _ram_col_map_ as byte, byval level as integer)
+load_level:
+; Auto Declaracao variavel ->  for k=0 to (200*20) 'Tamanho do mapa em Tiles
+_local_k set -2
+    link a6,#-2
+; byref _local__ram_map_ as word
+_local__ram_map_ set 8
+; byref _local__ram_col_map_ as byte
+_local__ram_col_map_ set 12
+; byval _local_level as word
+_local_level set 16
+
+    ; X_scroll   = 0 ' Limpa a variavel que armazena a posicao vertical da Scroll Plane
+    move.w #0,_global_X_scroll
+
+    ; camera     = 0 ' Coloca a camera no inicio do level
+    move.w #0,_global_camera
+
+    ; dave.flags = 0 ' Limpa todos os Flags
+    move.w #0,(_global_dave+10)
+
+    ; dave.flip  = 0 ' Personagem virado para a Direita
+    move.w #0,(_global_dave+8)
+
+    ; push((addressof(levels_) +((level * 1000)<<3)) as long, "A5") 'Salva o endereco do tile map no Registrador A5
+    moveq #0,d0
+    move.w (_local_level,a6),d0
+    mulu #1000,d0
+    lsl.l #3,d0
+    add.l #levels_,d0
+    move.l d0,A5
+
+    ; for k=0 to (200*20) 'Tamanho do mapa em Tiles
+    moveq #0,d0
+    move.w d0,(_local_k,a6)
+lbl_for_5_start:
+    move.w (_local_k,a6),d0
+    cmp.w #(200*20),d0
+    beq lbl_for_5_end
+
+    ; _ram_map_[k] = pop("(A5)+" as word) +1 ' Le o registrador (A5) como enderecamento indireto com pos-incremento e soma 1 ao valor (1 e o offset na Vram)
+    move.w (_local_k,a6),d0
+    add.w d0,d0
+    move.l (_local__ram_map_,a6),a0
+    move.w (A5)+,d1
+    addq #1,d1
+    move.w d1,0(a0,d0.w)
+
+    ; if _ram_map_[k] <= 37 then _ram_map_[k] |= 1<<13 'Se o tile for menor que 37 ele deve ser desenhado com a paleta 01 da Cram
+    move.w (_local_k,a6),d0
+    add.w d0,d0
+    move.l (_local__ram_map_,a6),a0
+    move.w 0(a0,d0.w),d1
+    cmp.w #37,d1
+    sls d1
+    and.w #$01,d1
+    dbra d1,lbl_if_true_11
+    bra lbl_if_false_11
+lbl_if_true_11:
+
+    ; if _ram_map_[k] <= 37 then _ram_map_[k] |= 1<<13 'Se o tile for menor que 37 ele deve ser desenhado com a paleta 01 da Cram
+    move.w (_local_k,a6),d0
+    add.w d0,d0
+    move.l (_local__ram_map_,a6),a0
+    move.w #(1<<13),d1
+    or.w d1,0(a0,d0.w)
+lbl_if_false_11:
+    moveq #1,d0
+    add.w d0,(_local_k,a6)
+    bra lbl_for_5_start
+
+    ; next k
+lbl_for_5_end:
+
+    ; push(addressof(colision_map) + (level * 1000) as long, "A5")
+    moveq #0,d0
+    move.w (_local_level,a6),d0
+    mulu #1000,d0
+    add.l #colision_map,d0
+    move.l d0,A5
+
+    ; for k=0 to (100*10) 'Tamanho doColision Map
+    moveq #0,d0
+    move.w d0,(_local_k,a6)
+lbl_for_6_start:
+    move.w (_local_k,a6),d0
+    cmp.w #(100*10),d0
+    beq lbl_for_6_end
+
+    ; _ram_col_map_[k] = pop("(A5)+" as byte) '
+    move.w (_local_k,a6),d0
+    move.l (_local__ram_col_map_,a6),a0
+    move.b (A5)+,d1
+    move.b d1,0(a0,d0.w)
+    moveq #1,d0
+    add.w d0,(_local_k,a6)
+    bra lbl_for_6_start
+
+    ; next k
+lbl_for_6_end:
+
+    ; Set_HorizontalScroll_position(0,1)
+    move.w #1,-(a7)
+    move.w #0,-(a7)
+    bsr Set_HorizontalScroll_position
+    addq #4,a7
+
+    ; draw_screen()                ' Desenha o level(Plane B)
+    bsr draw_screen
+
+    ; set_initial_position(level)  ' Define Posicao inicial do sprite
+    move.w (_local_level,a6),-(a7)
+    bsr set_initial_position
+    addq #2,a7
+
+    ; for k = 0 to 40
+    moveq #0,d0
+    move.w d0,(_local_k,a6)
+lbl_for_7_start:
+    move.w (_local_k,a6),d0
+    cmp.w #40,d0
+    beq lbl_for_7_end
+
+    ; draw_tile(0,k,20,0)
+    move.w #0,-(a7)
+    move.w #20,-(a7)
+    move.w (_local_k,a6),-(a7)
+    move.w #0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ; draw_tile(0,k,21,0)
+    move.w #0,-(a7)
+    move.w #21,-(a7)
+    move.w (_local_k,a6),-(a7)
+    move.w #0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+    moveq #1,d0
+    add.w d0,(_local_k,a6)
+    bra lbl_for_7_start
+
+    ; Next 
+lbl_for_7_end:
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub set_initial_position(byval lv as word)
+set_initial_position:
+    link a6,#-0
+; byval _local_lv as word
+_local_lv set 8
+
+    ; select lv
+    move.w (_local_lv,a6),d0
+
+    ; case 0 'Level 1
+    tst.w d0
+    beq lbl_case_true_2
+    bra lbl_case_false_2
+lbl_case_true_2:
+
+    ; dave.x = (128 + (2<<4))*2
+    move.w #((128+(2<<4))*2),(_global_dave+0)
+
+    ; dave.y = (128 + (8<<4))*2
+    move.w #((128+(8<<4))*2),(_global_dave+2)
+    bra lbl_select_end_1
+lbl_case_false_2:
+
+    ; case 1 'Level 2 
+    cmp.w #1,d0
+    beq lbl_case_true_3
+    bra lbl_case_false_3
+lbl_case_true_3:
+
+    ; dave.x = (128 + (1<<4))*2
+    move.w #((128+(1<<4))*2),(_global_dave+0)
+
+    ; dave.y = (128 + (8<<4))*2
+    move.w #((128+(8<<4))*2),(_global_dave+2)
+    bra lbl_select_end_1
+lbl_case_false_3:
+
+    ; case 2 'Level 3
+    cmp.w #2,d0
+    beq lbl_case_true_4
+    bra lbl_case_false_4
+lbl_case_true_4:
+
+    ; dave.x = (128 + (2<<4))*2
+    move.w #((128+(2<<4))*2),(_global_dave+0)
+
+    ; dave.y = (128 + (5<<4))*2
+    move.w #((128+(5<<4))*2),(_global_dave+2)
+    bra lbl_select_end_1
+lbl_case_false_4:
+
+    ; case 3 'Level 4
+    cmp.w #3,d0
+    beq lbl_case_true_5
+    bra lbl_case_false_5
+lbl_case_true_5:
+
+    ; dave.x = (128 + (1<<4))*2
+    move.w #((128+(1<<4))*2),(_global_dave+0)
+
+    ; dave.y = (128 + (5<<4))*2
+    move.w #((128+(5<<4))*2),(_global_dave+2)
+    bra lbl_select_end_1
+lbl_case_false_5:
+
+    ; case 4 'Level 5
+    cmp.w #4,d0
+    beq lbl_case_true_6
+    bra lbl_case_false_6
+lbl_case_true_6:
+
+    ; dave.x = (128 + (2<<4))*2
+    move.w #((128+(2<<4))*2),(_global_dave+0)
+
+    ; dave.y = (128 + (8<<4))*2
+    move.w #((128+(8<<4))*2),(_global_dave+2)
+    bra lbl_select_end_1
+lbl_case_false_6:
+
+    ; case 5 'Level 6
+    cmp.w #5,d0
+    beq lbl_case_true_7
+    bra lbl_case_false_7
+lbl_case_true_7:
+
+    ; dave.x = (128 + (1<<4))*2
+    move.w #((128+(1<<4))*2),(_global_dave+0)
+
+    ; dave.y = (128 + (8<<4))*2
+    move.w #((128+(8<<4))*2),(_global_dave+2)
+    bra lbl_select_end_1
+lbl_case_false_7:
+
+    ; case 6 'Level 7
+    cmp.w #6,d0
+    beq lbl_case_true_8
+    bra lbl_case_false_8
+lbl_case_true_8:
+
+    ; dave.x = (128 + (1<<4))*2
+    move.w #((128+(1<<4))*2),(_global_dave+0)
+
+    ; dave.y = (128 + (2<<4))*2
+    move.w #((128+(2<<4))*2),(_global_dave+2)
+    bra lbl_select_end_1
+lbl_case_false_8:
+
+    ; case 7 'Level 8
+    cmp.w #7,d0
+    beq lbl_case_true_9
+    bra lbl_case_false_9
+lbl_case_true_9:
+
+    ; dave.x = (128 + (2<<4))*2
+    move.w #((128+(2<<4))*2),(_global_dave+0)
+
+    ; dave.y = (128 + (8<<4))*2
+    move.w #((128+(8<<4))*2),(_global_dave+2)
+    bra lbl_select_end_1
+lbl_case_false_9:
+
+    ; case 8 'Level 9
+    cmp.w #8,d0
+    beq lbl_case_true_10
+    bra lbl_case_false_10
+lbl_case_true_10:
+
+    ; dave.x = (128 + (6<<4))*2
+    move.w #((128+(6<<4))*2),(_global_dave+0)
+
+    ; dave.y = (128 + (1<<4))*2
+    move.w #((128+(1<<4))*2),(_global_dave+2)
+    bra lbl_select_end_1
+lbl_case_false_10:
+
+    ; case 9 'Level 10
+    cmp.w #9,d0
+    beq lbl_case_true_11
+    bra lbl_case_false_11
+lbl_case_true_11:
+
+    ; dave.x = (128 + (2<<4))*2
+    move.w #((128+(2<<4))*2),(_global_dave+0)
+
+    ; dave.y = (128 + (8<<4))*2
+    move.w #((128+(8<<4))*2),(_global_dave+2)
+    bra lbl_select_end_1
+lbl_case_false_11:
+
+    ; end select
+lbl_select_end_1:
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub draw_screen() 
+draw_screen:
+; Auto Declaracao variavel ->  for y = 0 to 20
+_local_y set -2
+; Auto Declaracao variavel ->  for x = 0 to 40
+_local_x set -4
+    link a6,#-4
+
+    ; for y = 0 to 20
+    moveq #0,d0
+    move.w d0,(_local_y,a6)
+lbl_for_8_start:
+    move.w (_local_y,a6),d0
+    cmp.w #20,d0
+    beq lbl_for_8_end
+
+    ; for x = 0 to 40
+    moveq #0,d0
+    move.w d0,(_local_x,a6)
+lbl_for_9_start:
+    move.w (_local_x,a6),d0
+    cmp.w #40,d0
+    beq lbl_for_9_end
+
+    ; draw_tile(tile_map_ram[ x + camera , y ] ,x,y,1)
+    move.w #1,-(a7)
+    move.w (_local_y,a6),-(a7)
+    move.w (_local_x,a6),-(a7)
+    move.w (_local_x,a6),d0
+    add.w _global_camera,d0
+    move.w (_local_y,a6),d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w 0(a0,d0.w),-(a7)
+    bsr draw_tile
+    addq #8,a7
+    moveq #1,d0
+    add.w d0,(_local_x,a6)
+    bra lbl_for_9_start
+
+    ; next 
+lbl_for_9_end:
+    moveq #1,d0
+    add.w d0,(_local_y,a6)
+    bra lbl_for_8_start
+
+    ; next  
+lbl_for_8_end:
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub input_thread()
+input_thread:
+; Auto Declaracao variavel ->  j = joypad6b_read(0)
+_local_j set -2
+    link a6,#-2
+
+    ; j = joypad6b_read(0)
+    move.w #0,-(a7)
+    bsr joypad6b_read
+    addq #2,a7
+    move.w d7,(_local_j,a6)
+
+    ; dirx = 0
+    move.w #0,_global_dirx
+
+    ; if bit_test(j,2) then  ' Direita e Esquerda
+    move.w (_local_j,a6),d0
+    btst #2,d0
+    sne d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_12
+    bra lbl_if_false_12
+lbl_if_true_12:
+
+    ; dirx = - 3
+    move.w #-3,_global_dirx
+
+    ; dave.flip = &h800 ' Precisamos aplicar um Flip Horizontal caso o Personagem esteja indo pra esquerda
+    move.w #$800,(_global_dave+8)
+    bra lbl_if_end_12
+lbl_if_false_12:
+
+    ; elseif bit_test(j,3) then
+    move.w (_local_j,a6),d0
+    btst #3,d0
+    sne d0
+    and.w #$01,d0
+    dbra d0,lbl_elseif_true_13
+    bra lbl_elseif_false_13
+lbl_elseif_true_13:
+
+    ; dirx = 3
+    move.w #3,_global_dirx
+
+    ; dave.flip = 0
+    move.w #0,(_global_dave+8)
+    bra lbl_if_end_12
+lbl_elseif_false_13:
+lbl_if_end_12:
+
+    ; if bit_test(j,0) AND not(bit_test(dave.flags,0)) AND not(bit_test(dave.flags,1)) then 'Botao UP + Flags que impedem double Jump 
+    move.w (_local_j,a6),d0
+    btst #0,d0
+    sne d0
+    and.w #$01,d0
+    move.w (_global_dave+10),d1
+    btst #0,d1
+    sne d1
+    and.w #$01,d1
+    tst.w d1
+    seq d1
+    and.w #$01,d1
+    move.w (_global_dave+10),d2
+    btst #1,d2
+    sne d2
+    and.w #$01,d2
+    tst.w d2
+    seq d2
+    and.w #$01,d2
+    and.w d2,d1
+    and.w d1,d0
+    dbra d0,lbl_if_true_14
+    bra lbl_if_false_14
+lbl_if_true_14:
+
+    ; bit_set(dave.flags,1) ' Seta o Flag que indica se esta pulando
+    move.w (_global_dave+10),d0
+    bset.l #1,d0
+    move.w d0,(_global_dave+10)
+    bra lbl_if_end_14
+lbl_if_false_14:
+lbl_if_end_14:
+
+    ; if bit_test(dave.flags,1) AND dave.hjump < 33 then ' Esta pulando e nao atingiu a altura maxima ainda
+    move.w (_global_dave+10),d0
+    btst #1,d0
+    sne d0
+    and.w #$01,d0
+    move.w (_global_dave+6),d1
+    cmp.w #33,d1
+    scs d1
+    and.w #$01,d1
+    and.w d1,d0
+    dbra d0,lbl_if_true_15
+    bra lbl_if_false_15
+lbl_if_true_15:
+
+    ; dave.hjump+=1 
+    moveq #1,d0
+    add.w d0,(_global_dave+6)
+
+    ; gravidade =-2
+    move.w #-2,_global_gravidade
+    bra lbl_if_end_15
+lbl_if_false_15:
+
+    ; else  
+
+    ; bit_clear(dave.flags,1)
+    move.w (_global_dave+10),d0
+    bclr.l #1,d0
+    move.w d0,(_global_dave+10)
+
+    ; dave.hjump=0
+    move.w #0,(_global_dave+6)
+
+    ; gravidade=2
+    move.w #2,_global_gravidade
+lbl_if_end_15:
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub check_colision()
+check_colision:
+; Auto Declaracao variavel ->  hy1 =  ((Dave.y>>1) - 128-2 )>>4
+_local_hy1 set -2
+; Auto Declaracao variavel ->  hy2 =  ((Dave.y>>1) - 128-15)>>4 
+_local_hy2 set -4
+; Auto Declaracao variavel ->  hx  = (((Dave.x>>1) - 128-14)>>4) + (camera>>1)
+_local_hx set -6
+; Auto Declaracao variavel ->  col_point0 = colision_vector[ hx , hy1 ]
+_local_col_point0 set -8
+; Auto Declaracao variavel ->  col_point1 = colision_vector[ hx , hy2 ]
+_local_col_point1 set -10
+; Auto Declaracao variavel ->  vx1 = (((Dave.x>>1) - 128-4 )>>4) + (camera>>1)
+_local_vx1 set -12
+; Auto Declaracao variavel ->  vx2 = (((Dave.x>>1) - 128-12)>>4) + (camera>>1)
+_local_vx2 set -14
+; Auto Declaracao variavel ->  vy = ((Dave.y>>1) - 128-16)>>4
+_local_vy set -16
+; Auto Declaracao variavel ->  col_point3 = colision_vector[ vx1 , vy ]
+_local_col_point3 set -18
+; Auto Declaracao variavel ->  col_point4 = colision_vector[ vx2 , vy ]
+_local_col_point4 set -20
+    link a6,#-20
+
+    ; hy1 =  ((Dave.y>>1) - 128-2 )>>4
+    move.w (_global_Dave+2),d0
+    lsr.w #1,d0
+    sub.w #(128-2),d0
+    lsr.w #4,d0
+    move.w d0,(_local_hy1,a6)
+
+    ; hy2 =  ((Dave.y>>1) - 128-15)>>4 
+    move.w (_global_Dave+2),d0
+    lsr.w #1,d0
+    sub.w #(128-15),d0
+    lsr.w #4,d0
+    move.w d0,(_local_hy2,a6)
+
+    ; if dirx = 3 then ' Indo para a direita
+    move.w _global_dirx,d0
+    cmp.w #3,d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_16
+    bra lbl_if_false_16
+lbl_if_true_16:
+
+    ; hx  = (((Dave.x>>1) - 128-14)>>4) + (camera>>1)
+    move.w (_global_Dave+0),d0
+    lsr.w #1,d0
+    sub.w #(128-14),d0
+    lsr.w #4,d0
+    move.w _global_camera,d1
+    lsr.w #1,d1
+    add.w d1,d0
+    move.w d0,(_local_hx,a6)
+
+    ; col_point0 = colision_vector[ hx , hy1 ]
+    move.w (_local_hy1,a6),d0
+    mulu #100,d0
+    add.w (_local_hx,a6),d0
+    lea _global_colision_vector,a0
+    moveq #0,d1
+    move.b 0(a0,d0.w),d1
+    move.w d1,(_local_col_point0,a6)
+
+    ; col_point1 = colision_vector[ hx , hy2 ]
+    move.w (_local_hy2,a6),d0
+    mulu #100,d0
+    add.w (_local_hx,a6),d0
+    lea _global_colision_vector,a0
+    moveq #0,d1
+    move.b 0(a0,d0.w),d1
+    move.w d1,(_local_col_point1,a6)
+    bra lbl_if_end_16
+lbl_if_false_16:
+
+    ; else'if dirx = -1 then 'Indo para a esquerda
+
+    ; hx  = (((Dave.x>>1) - 128-2 )>>4) + (camera>>1)
+    move.w (_global_Dave+0),d0
+    lsr.w #1,d0
+    sub.w #(128-2),d0
+    lsr.w #4,d0
+    move.w _global_camera,d1
+    lsr.w #1,d1
+    add.w d1,d0
+    move.w d0,(_local_hx,a6)
+
+    ; col_point0 = colision_vector[ hx , hy1 ]
+    move.w (_local_hy1,a6),d0
+    mulu #100,d0
+    add.w (_local_hx,a6),d0
+    lea _global_colision_vector,a0
+    moveq #0,d1
+    move.b 0(a0,d0.w),d1
+    move.w d1,(_local_col_point0,a6)
+
+    ; col_point1 = colision_vector[ hx , hy2 ] 
+    move.w (_local_hy2,a6),d0
+    mulu #100,d0
+    add.w (_local_hx,a6),d0
+    lea _global_colision_vector,a0
+    moveq #0,d1
+    move.b 0(a0,d0.w),d1
+    move.w d1,(_local_col_point1,a6)
+lbl_if_end_16:
+
+    ; vx1 = (((Dave.x>>1) - 128-4 )>>4) + (camera>>1)
+    move.w (_global_Dave+0),d0
+    lsr.w #1,d0
+    sub.w #(128-4),d0
+    lsr.w #4,d0
+    move.w _global_camera,d1
+    lsr.w #1,d1
+    add.w d1,d0
+    move.w d0,(_local_vx1,a6)
+
+    ; vx2 = (((Dave.x>>1) - 128-12)>>4) + (camera>>1)
+    move.w (_global_Dave+0),d0
+    lsr.w #1,d0
+    sub.w #(128-12),d0
+    lsr.w #4,d0
+    move.w _global_camera,d1
+    lsr.w #1,d1
+    add.w d1,d0
+    move.w d0,(_local_vx2,a6)
+
+    ; if gravidade = 2 then 'indo para baixo
+    move.w _global_gravidade,d0
+    cmp.w #2,d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_17
+    bra lbl_if_false_17
+lbl_if_true_17:
+
+    ; vy = ((Dave.y>>1) - 128-16)>>4
+    move.w (_global_Dave+2),d0
+    lsr.w #1,d0
+    sub.w #(128-16),d0
+    lsr.w #4,d0
+    move.w d0,(_local_vy,a6)
+
+    ; col_point3 = colision_vector[ vx1 , vy ]
+    move.w (_local_vy,a6),d0
+    mulu #100,d0
+    add.w (_local_vx1,a6),d0
+    lea _global_colision_vector,a0
+    moveq #0,d1
+    move.b 0(a0,d0.w),d1
+    move.w d1,(_local_col_point3,a6)
+
+    ; col_point4 = colision_vector[ vx2 , vy ]
+    move.w (_local_vy,a6),d0
+    mulu #100,d0
+    add.w (_local_vx2,a6),d0
+    lea _global_colision_vector,a0
+    moveq #0,d1
+    move.b 0(a0,d0.w),d1
+    move.w d1,(_local_col_point4,a6)
+    bra lbl_if_end_17
+lbl_if_false_17:
+
+    ; else'if gravidade = -1 then 'Indo para cima
+
+    ; vy = ((Dave.y>>1) - 128-1 )>>4
+    move.w (_global_Dave+2),d0
+    lsr.w #1,d0
+    sub.w #(128-1),d0
+    lsr.w #4,d0
+    move.w d0,(_local_vy,a6)
+
+    ; col_point3 = colision_vector[ vx1 , vy ]
+    move.w (_local_vy,a6),d0
+    mulu #100,d0
+    add.w (_local_vx1,a6),d0
+    lea _global_colision_vector,a0
+    moveq #0,d1
+    move.b 0(a0,d0.w),d1
+    move.w d1,(_local_col_point3,a6)
+
+    ; col_point4 = colision_vector[ vx2 , vy ]
+    move.w (_local_vy,a6),d0
+    mulu #100,d0
+    add.w (_local_vx2,a6),d0
+    lea _global_colision_vector,a0
+    moveq #0,d1
+    move.b 0(a0,d0.w),d1
+    move.w d1,(_local_col_point4,a6)
+lbl_if_end_17:
+
+    ; if hy1 = hy2 then ' Os dois pontos estao no mesmo tile -> Analisa um ponto so
+    move.w (_local_hy1,a6),d0
+    cmp.w (_local_hy2,a6),d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_18
+    bra lbl_if_false_18
+lbl_if_true_18:
+
+    ;  if col_point0 = 1 then             ' E um solido 
+    move.w (_local_col_point0,a6),d0
+    cmp.w #1,d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_19
+    bra lbl_if_false_19
+lbl_if_true_19:
+
+    ;  dirx = 0                           ' Entao, apenas bloqueia o caminho
+    move.w #0,_global_dirx
+    bra lbl_if_end_19
+lbl_if_false_19:
+
+    ;  elseif col_point0 <> 0 then        ' Se nao e um solido e e algo diferente de um espaco vazio
+    move.w (_local_col_point0,a6),d0
+    tst.w d0
+    sne d0
+    and.w #$01,d0
+    dbra d0,lbl_elseif_true_20
+    bra lbl_elseif_false_20
+lbl_elseif_true_20:
+
+    ;  check_vertices(col_point0,hx,hy1)  '  Chama a rotina para verificar que objeto e
+    move.w (_local_hy1,a6),-(a7)
+    move.w (_local_hx,a6),-(a7)
+    move.w (_local_col_point0,a6),-(a7)
+    bsr check_vertices
+    addq #6,a7
+    bra lbl_if_end_19
+lbl_elseif_false_20:
+lbl_if_end_19:
+    bra lbl_if_end_18
+lbl_if_false_18:
+
+    ; else ' Os Dois pontos estao em Tiles diferentesm -> entao analisa os Dois
+
+    ;  if col_point0 = 1 then             ' E um solido 
+    move.w (_local_col_point0,a6),d0
+    cmp.w #1,d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_21
+    bra lbl_if_false_21
+lbl_if_true_21:
+
+    ;  dirx = 0                           ' Apenas bloqueia o caminho
+    move.w #0,_global_dirx
+    bra lbl_if_end_21
+lbl_if_false_21:
+
+    ;  elseif col_point0 <> 0 then        ' E algo diferente de um espaco vazio
+    move.w (_local_col_point0,a6),d0
+    tst.w d0
+    sne d0
+    and.w #$01,d0
+    dbra d0,lbl_elseif_true_22
+    bra lbl_elseif_false_22
+lbl_elseif_true_22:
+
+    ;  check_vertices(col_point0,hx,hy1)  ' Chama a rotina para verificar que objeto e
+    move.w (_local_hy1,a6),-(a7)
+    move.w (_local_hx,a6),-(a7)
+    move.w (_local_col_point0,a6),-(a7)
+    bsr check_vertices
+    addq #6,a7
+    bra lbl_if_end_21
+lbl_elseif_false_22:
+lbl_if_end_21:
+
+    ;  if col_point1 = 1 then             ' E um solido
+    move.w (_local_col_point1,a6),d0
+    cmp.w #1,d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_23
+    bra lbl_if_false_23
+lbl_if_true_23:
+
+    ;  dirx=0                             ' Apenas bloqueia o caminho
+    move.w #0,_global_dirx
+    bra lbl_if_end_23
+lbl_if_false_23:
+
+    ;  elseif col_point1 <> 0 then        ' E algo diferente de um espaco vazio
+    move.w (_local_col_point1,a6),d0
+    tst.w d0
+    sne d0
+    and.w #$01,d0
+    dbra d0,lbl_elseif_true_24
+    bra lbl_elseif_false_24
+lbl_elseif_true_24:
+
+    ;  check_vertices(col_point1,hx,hy2)  ' Chama a rotina para verificar que objeto e
+    move.w (_local_hy2,a6),-(a7)
+    move.w (_local_hx,a6),-(a7)
+    move.w (_local_col_point1,a6),-(a7)
+    bsr check_vertices
+    addq #6,a7
+    bra lbl_if_end_23
+lbl_elseif_false_24:
+lbl_if_end_23:
+lbl_if_end_18:
+
+    ; if vx1 = vx2 then ' Os dois pontos estao no mesmo tile
+    move.w (_local_vx1,a6),d0
+    cmp.w (_local_vx2,a6),d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_25
+    bra lbl_if_false_25
+lbl_if_true_25:
+
+    ; if col_point3 = 1 then             ' E um solido 
+    move.w (_local_col_point3,a6),d0
+    cmp.w #1,d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_26
+    bra lbl_if_false_26
+lbl_if_true_26:
+
+    ;  if gravidade = -2 AND bit_test(dave.flags,1) then ' Acertou algo que limita o pulo
+    move.w _global_gravidade,d0
+    cmp.w #-2,d0
+    seq d0
+    and.w #$01,d0
+    move.w (_global_dave+10),d1
+    btst #1,d1
+    sne d1
+    and.w #$01,d1
+    and.w d1,d0
+    dbra d0,lbl_if_true_27
+    bra lbl_if_false_27
+lbl_if_true_27:
+
+    ;  bit_clear(dave.flags,1)                           ' Fim do pulo (bateu a cebeca)
+    move.w (_global_dave+10),d0
+    bclr.l #1,d0
+    move.w d0,(_global_dave+10)
+    bra lbl_if_end_27
+lbl_if_false_27:
+
+    ;  elseif gravidade = 2 then                          ' Bateu em algo e a gravidade nao esta invertida
+    move.w _global_gravidade,d0
+    cmp.w #2,d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_elseif_true_28
+    bra lbl_elseif_false_28
+lbl_elseif_true_28:
+
+    ;  bit_clear(dave.flags,0)                          ' Nao esta caindo 
+    move.w (_global_dave+10),d0
+    bclr.l #0,d0
+    move.w d0,(_global_dave+10)
+    bra lbl_if_end_27
+lbl_elseif_false_28:
+lbl_if_end_27:
+
+    ;  gravidade = 0                       ' Apenas bloqueia o caminho
+    move.w #0,_global_gravidade
+    bra lbl_if_end_26
+lbl_if_false_26:
+
+    ; elseif col_point3 <> 0 then        ' E algo diferente de um espaco vazio
+    move.w (_local_col_point3,a6),d0
+    tst.w d0
+    sne d0
+    and.w #$01,d0
+    dbra d0,lbl_elseif_true_29
+    bra lbl_elseif_false_29
+lbl_elseif_true_29:
+
+    ;  check_vertices(col_point3,vx1,vy)  ' Chama a rotina para verificar que objeto e
+    move.w (_local_vy,a6),-(a7)
+    move.w (_local_vx1,a6),-(a7)
+    move.w (_local_col_point3,a6),-(a7)
+    bsr check_vertices
+    addq #6,a7
+    bra lbl_if_end_26
+lbl_elseif_false_29:
+lbl_if_end_26:
+    bra lbl_if_end_25
+lbl_if_false_25:
+
+    ; else ' Os dois ponto estao em Tiles Diferentes
+
+    ;  if col_point3 = 1 then             ' E um solido 
+    move.w (_local_col_point3,a6),d0
+    cmp.w #1,d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_30
+    bra lbl_if_false_30
+lbl_if_true_30:
+
+    ;   if gravidade = -2 AND bit_test(dave.flags,1) then ' Acertou algo que limita o pulo
+    move.w _global_gravidade,d0
+    cmp.w #-2,d0
+    seq d0
+    and.w #$01,d0
+    move.w (_global_dave+10),d1
+    btst #1,d1
+    sne d1
+    and.w #$01,d1
+    and.w d1,d0
+    dbra d0,lbl_if_true_31
+    bra lbl_if_false_31
+lbl_if_true_31:
+
+    ;   bit_clear(dave.flags,1)                           ' Fim do pulo (bateu a cebeca)
+    move.w (_global_dave+10),d0
+    bclr.l #1,d0
+    move.w d0,(_global_dave+10)
+    bra lbl_if_end_31
+lbl_if_false_31:
+
+    ;   elseif gravidade = 2 then                          ' Bateu em algo e a gravidade nao esta invertida
+    move.w _global_gravidade,d0
+    cmp.w #2,d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_elseif_true_32
+    bra lbl_elseif_false_32
+lbl_elseif_true_32:
+
+    ;   bit_clear(dave.flags,0)                          ' Nao esta caindo 
+    move.w (_global_dave+10),d0
+    bclr.l #0,d0
+    move.w d0,(_global_dave+10)
+    bra lbl_if_end_31
+lbl_elseif_false_32:
+lbl_if_end_31:
+
+    ;   gravidade = 0                     ' Apenas bloqueia o caminho
+    move.w #0,_global_gravidade
+    bra lbl_if_end_30
+lbl_if_false_30:
+
+    ; elseif col_point3 <> 0 then        ' E algo diferente de um espaco vazio
+    move.w (_local_col_point3,a6),d0
+    tst.w d0
+    sne d0
+    and.w #$01,d0
+    dbra d0,lbl_elseif_true_33
+    bra lbl_elseif_false_33
+lbl_elseif_true_33:
+
+    ;  check_vertices(col_point3,vx1,vy)  ' Chama a rotina para verificar que objeto e
+    move.w (_local_vy,a6),-(a7)
+    move.w (_local_vx1,a6),-(a7)
+    move.w (_local_col_point3,a6),-(a7)
+    bsr check_vertices
+    addq #6,a7
+    bra lbl_if_end_30
+lbl_elseif_false_33:
+lbl_if_end_30:
+
+    ; if col_point4 = 1 then             ' E um solido
+    move.w (_local_col_point4,a6),d0
+    cmp.w #1,d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_34
+    bra lbl_if_false_34
+lbl_if_true_34:
+
+    ;  if gravidade = -2 AND bit_test(dave.flags,1) then ' Acertou algo que limita o pula
+    move.w _global_gravidade,d0
+    cmp.w #-2,d0
+    seq d0
+    and.w #$01,d0
+    move.w (_global_dave+10),d1
+    btst #1,d1
+    sne d1
+    and.w #$01,d1
+    and.w d1,d0
+    dbra d0,lbl_if_true_35
+    bra lbl_if_false_35
+lbl_if_true_35:
+
+    ;  bit_clear(dave.flags,1)                           ' Fim do pulo (bateu a cebeca)
+    move.w (_global_dave+10),d0
+    bclr.l #1,d0
+    move.w d0,(_global_dave+10)
+    bra lbl_if_end_35
+lbl_if_false_35:
+
+    ;  elseif gravidade = 2 then                              ' Bateu em algo ea gravidade nao esta invertida
+    move.w _global_gravidade,d0
+    cmp.w #2,d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_elseif_true_36
+    bra lbl_elseif_false_36
+lbl_elseif_true_36:
+
+    ;  bit_clear(dave.flags,0)                          ' Nao esta caindo 
+    move.w (_global_dave+10),d0
+    bclr.l #0,d0
+    move.w d0,(_global_dave+10)
+    bra lbl_if_end_35
+lbl_elseif_false_36:
+lbl_if_end_35:
+
+    ;  gravidade = 0                      ' Apenas bloqueia o caminho
+    move.w #0,_global_gravidade
+    bra lbl_if_end_34
+lbl_if_false_34:
+
+    ; elseif col_point4 <> 0 then        ' E algo diferente de um espaco vazio
+    move.w (_local_col_point4,a6),d0
+    tst.w d0
+    sne d0
+    and.w #$01,d0
+    dbra d0,lbl_elseif_true_37
+    bra lbl_elseif_false_37
+lbl_elseif_true_37:
+
+    ;  check_vertices(col_point4,vx2,vy)  ' Chama a rotina para verificar que objeto e
+    move.w (_local_vy,a6),-(a7)
+    move.w (_local_vx2,a6),-(a7)
+    move.w (_local_col_point4,a6),-(a7)
+    bsr check_vertices
+    addq #6,a7
+    bra lbl_if_end_34
+lbl_elseif_false_37:
+lbl_if_end_34:
+lbl_if_end_25:
+
+    ; if gravidade = 2 then bit_set(dave.flags,0) 'Seta o Flag de queda
+    move.w _global_gravidade,d0
+    cmp.w #2,d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_38
+    bra lbl_if_false_38
+lbl_if_true_38:
+
+    ; if gravidade = 2 then bit_set(dave.flags,0) 'Seta o Flag de queda
+    move.w (_global_dave+10),d0
+    bset.l #0,d0
+    move.w d0,(_global_dave+10)
+lbl_if_false_38:
+
+    ; dave.y += gravidade
+    move.w _global_gravidade,d0
+    add.w d0,(_global_dave+2)
+
+    ; dave.x += dirx
+    move.w _global_dirx,d0
+    add.w d0,(_global_dave+0)
+    unlk a6 
+    rts
+
+    ;end sub
+
+    ;sub check_vertices(byval point as integer, byval xt as integer, byval yt as integer)
+check_vertices:
+    link a6,#-0
+; byval _local_point as word
+_local_point set 8
+; byval _local_xt as word
+_local_xt set 10
+; byval _local_yt as word
+_local_yt set 12
+
+    ; if     point = 2 then ' 2 Morte
+    move.w (_local_point,a6),d0
+    cmp.w #2,d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_39
+    bra lbl_if_false_39
+lbl_if_true_39:
+
+    ; set_initial_position(level_index)
+    move.w _global_level_index,-(a7)
+    bsr set_initial_position
+    addq #2,a7
+
+    ; camera = 0
+    move.w #0,_global_camera
+
+    ; X_scroll = 0
+    move.w #0,_global_X_scroll
+
+    ; dirx = 0
+    move.w #0,_global_dirx
+
+    ; gravidade = 0
+    move.w #0,_global_gravidade
+
+    ; dave.flip = 0
+    move.w #0,(_global_dave+8)
+
+    ; Set_HorizontalScroll_position(0,1)
+    move.w #1,-(a7)
+    move.w #0,-(a7)
+    bsr Set_HorizontalScroll_position
+    addq #4,a7
+
+    ; draw_screen()
+    bsr draw_screen
+    bra lbl_if_end_39
+lbl_if_false_39:
+
+    ; elseif point = 3 then ' 3 Trofeu
+    move.w (_local_point,a6),d0
+    cmp.w #3,d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_elseif_true_40
+    bra lbl_elseif_false_40
+lbl_elseif_true_40:
+
+    ; colision_vector[xt,yt]=0 ' Remove do Colision Map
+    move.w (_local_yt,a6),d0
+    mulu #100,d0
+    add.w (_local_xt,a6),d0
+    lea _global_colision_vector,a0
+    move.b #0,0(a0,d0.w)
+
+    ; bit_set(dave.flags,2)
+    move.w (_global_dave+10),d0
+    bset.l #2,d0
+    move.w d0,(_global_dave+10)
+
+    ; draw_tile(0, (xt<<1)   AND 63, (yt<<1)   AND 31,1) 
+    move.w #1,-(a7)
+    move.w (_local_yt,a6),d0
+    add.w d0,d0
+    and.w #31,d0
+    move.w d0,-(a7)
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w #0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ; draw_tile(0,((xt<<1)+1)AND 63, (yt<<1)   AND 31,1)
+    move.w #1,-(a7)
+    move.w (_local_yt,a6),d0
+    add.w d0,d0
+    and.w #31,d0
+    move.w d0,-(a7)
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w #0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ; draw_tile(0, (xt<<1)   AND 63,((yt<<1)+1)AND 31,1)
+    move.w #1,-(a7)
+    move.w (_local_yt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    and.w #31,d0
+    move.w d0,-(a7)
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w #0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ; draw_tile(0,((xt<<1)+1)AND 63,((yt<<1)+1)AND 31,1)
+    move.w #1,-(a7)
+    move.w (_local_yt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    and.w #31,d0
+    move.w d0,-(a7)
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w #0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ; tile_map_ram[(xt<<1)  ,(yt<<1)  ] = 0
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    move.w (_local_yt,a6),d1
+    add.w d1,d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w #0,0(a0,d0.w)
+
+    ; tile_map_ram[(xt<<1)+1,(yt<<1)  ] = 0
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    move.w (_local_yt,a6),d1
+    add.w d1,d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w #0,0(a0,d0.w)
+
+    ; tile_map_ram[(xt<<1)  ,(yt<<1)+1] = 0
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    move.w (_local_yt,a6),d1
+    add.w d1,d1
+    addq #1,d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w #0,0(a0,d0.w)
+
+    ; tile_map_ram[(xt<<1)+1,(yt<<1)+1] = 0
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    move.w (_local_yt,a6),d1
+    add.w d1,d1
+    addq #1,d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w #0,0(a0,d0.w)
+
+    ; draw_tile(153,0,20,0) 
+    move.w #0,-(a7)
+    move.w #20,-(a7)
+    move.w #0,-(a7)
+    move.w #153,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ; draw_tile(154,0,21,0)
+    move.w #0,-(a7)
+    move.w #21,-(a7)
+    move.w #0,-(a7)
+    move.w #154,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ; draw_tile(155,1,20,0)
+    move.w #0,-(a7)
+    move.w #20,-(a7)
+    move.w #1,-(a7)
+    move.w #155,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ; draw_tile(156,1,21,0)
+    move.w #0,-(a7)
+    move.w #21,-(a7)
+    move.w #1,-(a7)
+    move.w #156,-(a7)
+    bsr draw_tile
+    addq #8,a7
+    bra lbl_if_end_39
+lbl_elseif_false_40:
+
+    ; elseif point = 4 then ' 4 Porta
+    move.w (_local_point,a6),d0
+    cmp.w #4,d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_elseif_true_41
+    bra lbl_elseif_false_41
+lbl_elseif_true_41:
+
+    ; if bit_test(dave.flags,2) then
+    move.w (_global_dave+10),d0
+    btst #2,d0
+    sne d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_42
+    bra lbl_if_false_42
+lbl_if_true_42:
+
+    ;  level_index +=1
+    moveq #1,d0
+    add.w d0,_global_level_index
+
+    ;  bit_set(dave.flags,5)
+    move.w (_global_dave+10),d0
+    bset.l #5,d0
+    move.w d0,(_global_dave+10)
+    bra lbl_if_end_42
+lbl_if_false_42:
+lbl_if_end_42:
+    bra lbl_if_end_39
+lbl_elseif_false_41:
+
+    ; elseif point = 5 then ' 5 Jetpack
+    move.w (_local_point,a6),d0
+    cmp.w #5,d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_elseif_true_43
+    bra lbl_elseif_false_43
+lbl_elseif_true_43:
+
+    ;  colision_vector[xt,yt]=0 ' Remove do Colision Map
+    move.w (_local_yt,a6),d0
+    mulu #100,d0
+    add.w (_local_xt,a6),d0
+    lea _global_colision_vector,a0
+    move.b #0,0(a0,d0.w)
+
+    ;  bit_set(dave.flags,4)
+    move.w (_global_dave+10),d0
+    bset.l #4,d0
+    move.w d0,(_global_dave+10)
+
+    ;  draw_tile(0, (xt<<1)   AND 63, (yt<<1)   AND 31,1) 
+    move.w #1,-(a7)
+    move.w (_local_yt,a6),d0
+    add.w d0,d0
+    and.w #31,d0
+    move.w d0,-(a7)
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w #0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  draw_tile(0,((xt<<1)+1)AND 63, (yt<<1)   AND 31,1)
+    move.w #1,-(a7)
+    move.w (_local_yt,a6),d0
+    add.w d0,d0
+    and.w #31,d0
+    move.w d0,-(a7)
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w #0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  draw_tile(0, (xt<<1)   AND 63,((yt<<1)+1)AND 31,1)
+    move.w #1,-(a7)
+    move.w (_local_yt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    and.w #31,d0
+    move.w d0,-(a7)
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w #0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  draw_tile(0,((xt<<1)+1)AND 63,((yt<<1)+1)AND 31,1)
+    move.w #1,-(a7)
+    move.w (_local_yt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    and.w #31,d0
+    move.w d0,-(a7)
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w #0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  tile_map_ram[(xt<<1)  ,(yt<<1)  ] = 0
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    move.w (_local_yt,a6),d1
+    add.w d1,d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w #0,0(a0,d0.w)
+
+    ;  tile_map_ram[(xt<<1)+1,(yt<<1)  ] = 0
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    move.w (_local_yt,a6),d1
+    add.w d1,d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w #0,0(a0,d0.w)
+
+    ;  tile_map_ram[(xt<<1)  ,(yt<<1)+1] = 0
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    move.w (_local_yt,a6),d1
+    add.w d1,d1
+    addq #1,d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w #0,0(a0,d0.w)
+
+    ;  tile_map_ram[(xt<<1)+1,(yt<<1)+1] = 0
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    move.w (_local_yt,a6),d1
+    add.w d1,d1
+    addq #1,d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w #0,0(a0,d0.w)
+
+    ;  draw_tile(41,8,20,0) 
+    move.w #0,-(a7)
+    move.w #20,-(a7)
+    move.w #8,-(a7)
+    move.w #41,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  draw_tile(42,8,21,0)
+    move.w #0,-(a7)
+    move.w #21,-(a7)
+    move.w #8,-(a7)
+    move.w #42,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  draw_tile(43,9,20,0)
+    move.w #0,-(a7)
+    move.w #20,-(a7)
+    move.w #9,-(a7)
+    move.w #43,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  draw_tile(44,9,21,0)
+    move.w #0,-(a7)
+    move.w #21,-(a7)
+    move.w #9,-(a7)
+    move.w #44,-(a7)
+    bsr draw_tile
+    addq #8,a7
+    bra lbl_if_end_39
+lbl_elseif_false_43:
+
+    ; elseif point = 6 then ' 6 Arma  
+    move.w (_local_point,a6),d0
+    cmp.w #6,d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_elseif_true_44
+    bra lbl_elseif_false_44
+lbl_elseif_true_44:
+
+    ;  colision_vector[xt,yt]=0 ' Remove do Colision Map
+    move.w (_local_yt,a6),d0
+    mulu #100,d0
+    add.w (_local_xt,a6),d0
+    lea _global_colision_vector,a0
+    move.b #0,0(a0,d0.w)
+
+    ;  bit_set(dave.flags,3)
+    move.w (_global_dave+10),d0
+    bset.l #3,d0
+    move.w d0,(_global_dave+10)
+
+    ;  draw_tile(0, (xt<<1)   AND 63, (yt<<1)   AND 31,1) 
+    move.w #1,-(a7)
+    move.w (_local_yt,a6),d0
+    add.w d0,d0
+    and.w #31,d0
+    move.w d0,-(a7)
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w #0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  draw_tile(0,((xt<<1)+1)AND 63, (yt<<1)   AND 31,1)
+    move.w #1,-(a7)
+    move.w (_local_yt,a6),d0
+    add.w d0,d0
+    and.w #31,d0
+    move.w d0,-(a7)
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w #0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  draw_tile(0, (xt<<1)   AND 63,((yt<<1)+1)AND 31,1)
+    move.w #1,-(a7)
+    move.w (_local_yt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    and.w #31,d0
+    move.w d0,-(a7)
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w #0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  draw_tile(0,((xt<<1)+1)AND 63,((yt<<1)+1)AND 31,1) 
+    move.w #1,-(a7)
+    move.w (_local_yt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    and.w #31,d0
+    move.w d0,-(a7)
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w #0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  tile_map_ram[(xt<<1)  ,(yt<<1)  ] = 0
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    move.w (_local_yt,a6),d1
+    add.w d1,d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w #0,0(a0,d0.w)
+
+    ;  tile_map_ram[(xt<<1)+1,(yt<<1)  ] = 0
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    move.w (_local_yt,a6),d1
+    add.w d1,d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w #0,0(a0,d0.w)
+
+    ;  tile_map_ram[(xt<<1)  ,(yt<<1)+1] = 0
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    move.w (_local_yt,a6),d1
+    add.w d1,d1
+    addq #1,d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w #0,0(a0,d0.w)
+
+    ;  tile_map_ram[(xt<<1)+1,(yt<<1)+1] = 0
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    move.w (_local_yt,a6),d1
+    add.w d1,d1
+    addq #1,d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w #0,0(a0,d0.w)
+
+    ;  draw_tile(1 or 1<<13,4,20,0) 
+    move.w #0,-(a7)
+    move.w #20,-(a7)
+    move.w #4,-(a7)
+    move.w #(1|(1<<13)),-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  draw_tile(2 or 1<<13,4,21,0)
+    move.w #0,-(a7)
+    move.w #21,-(a7)
+    move.w #4,-(a7)
+    move.w #(2|(1<<13)),-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  draw_tile(3 or 1<<13,5,20,0)
+    move.w #0,-(a7)
+    move.w #20,-(a7)
+    move.w #5,-(a7)
+    move.w #(3|(1<<13)),-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  draw_tile(4 or 1<<13,5,21,0) 
+    move.w #0,-(a7)
+    move.w #21,-(a7)
+    move.w #5,-(a7)
+    move.w #(4|(1<<13)),-(a7)
+    bsr draw_tile
+    addq #8,a7
+    bra lbl_if_end_39
+lbl_elseif_false_44:
+
+    ; elseif point = 7 then ' 7 Escalavel (arvores)
+    move.w (_local_point,a6),d0
+    cmp.w #7,d0
+    seq d0
+    and.w #$01,d0
+    dbra d0,lbl_elseif_true_45
+    bra lbl_elseif_false_45
+lbl_elseif_true_45:
+    bra lbl_if_end_39
+lbl_elseif_false_45:
+
+    ; else                      ' Maior que 8 = Pontos
+
+    ;  score += (point - 7)     ' Incrementa o Score
+    move.w (_local_point,a6),d0
+    subq #7,d0
+    add.w d0,_global_score
+
+    ;  colision_vector[xt,yt]=0 ' Remove do Colision Map
+    move.w (_local_yt,a6),d0
+    mulu #100,d0
+    add.w (_local_xt,a6),d0
+    lea _global_colision_vector,a0
+    move.b #0,0(a0,d0.w)
+
+    ;  draw_tile(0, (xt<<1)   AND 63, (yt<<1)   AND 31,1) 
+    move.w #1,-(a7)
+    move.w (_local_yt,a6),d0
+    add.w d0,d0
+    and.w #31,d0
+    move.w d0,-(a7)
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w #0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  draw_tile(0,((xt<<1)+1)AND 63, (yt<<1)   AND 31,1)
+    move.w #1,-(a7)
+    move.w (_local_yt,a6),d0
+    add.w d0,d0
+    and.w #31,d0
+    move.w d0,-(a7)
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w #0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  draw_tile(0, (xt<<1)   AND 63,((yt<<1)+1)AND 31,1)
+    move.w #1,-(a7)
+    move.w (_local_yt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    and.w #31,d0
+    move.w d0,-(a7)
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w #0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  draw_tile(0,((xt<<1)+1)AND 63,((yt<<1)+1)AND 31,1)
+    move.w #1,-(a7)
+    move.w (_local_yt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    and.w #31,d0
+    move.w d0,-(a7)
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    and.w #63,d0
+    move.w d0,-(a7)
+    move.w #0,-(a7)
+    bsr draw_tile
+    addq #8,a7
+
+    ;  tile_map_ram[(xt<<1)  ,(yt<<1)  ] = 0
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    move.w (_local_yt,a6),d1
+    add.w d1,d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w #0,0(a0,d0.w)
+
+    ;  tile_map_ram[(xt<<1)+1,(yt<<1)  ] = 0
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    move.w (_local_yt,a6),d1
+    add.w d1,d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w #0,0(a0,d0.w)
+
+    ;  tile_map_ram[(xt<<1)  ,(yt<<1)+1] = 0
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    move.w (_local_yt,a6),d1
+    add.w d1,d1
+    addq #1,d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w #0,0(a0,d0.w)
+
+    ;  tile_map_ram[(xt<<1)+1,(yt<<1)+1] = 0
+    move.w (_local_xt,a6),d0
+    add.w d0,d0
+    addq #1,d0
+    move.w (_local_yt,a6),d1
+    add.w d1,d1
+    addq #1,d1
+    mulu #200,d1
+    add.w d0,d1
+    add.w d1,d1
+    move.w d1,d0
+    lea _global_tile_map_ram,a0
+    move.w #0,0(a0,d0.w)
+lbl_if_end_39:
+    unlk a6 
+    rts
+
+    ;end sub
 
     ;sub isr_06_vector()
 isr_06_vector:
     movem.l d0-d6/a0-a5,-(a7)
 
-    ;DMA_Queue_Transfer()  'execute Queue
-    bsr DMA_Queue_Transfer
-
-    ;update_sprite_table() 'Update sprite attribute table
+    ; update_sprite_table() ' Atualiza os dados do Sprite na tela
     bsr update_sprite_table
 
-    ;waitvbl=0
-    move.w #0,_global_waitvbl
+    ; vbl = 0               ' Limpa o Flag de espera pelo Vblank
+    move.w #0,_global_vbl
+
+    ; v_count +=1           ' Incrementa a variavel de contagem de interrupcoes por Vblank
+    moveq #1,d0
+    add.w d0,_global_v_count
+
+    ; if v_count >= 60 then ' Se ja ocorreram 60 interrupcoes ja se passou 1 segundo
+    move.w _global_v_count,d0
+    cmp.w #60,d0
+    scc d0
+    and.w #$01,d0
+    dbra d0,lbl_if_true_46
+    bra lbl_if_false_46
+lbl_if_true_46:
+
+    ; frame_rate = frame_c  ' Frame Rate e igual ao Numero de Frames renderizados (frame_c) em 1 segudo
+    move.w _global_frame_c,_global_frame_rate
+
+    ; v_count=0             ' Zera variavel de contagem de interupcoes
+    move.w #0,_global_v_count
+
+    ; frame_c = 0           ' Zera a variavel de contagem de frame Renderizados
+    move.w #0,_global_frame_c
+    bra lbl_if_end_46
+lbl_if_false_46:
+lbl_if_end_46:
 
     movem.l (a7)+,d0-d6/a0-a5
     rte
@@ -379,10 +2704,10 @@ _local_i set -2
     ;  for i = 0 to 80
     moveq #0,d0
     move.w d0,(_local_i,a6)
-lbl_for_1_start:
+lbl_for_10_start:
     move.w (_local_i,a6),d0
     cmp.w #80,d0
-    beq lbl_for_1_end
+    beq lbl_for_10_end
 
     ;  sprite_table[i].x         = 0
     move.w (_local_i,a6),d0
@@ -411,10 +2736,10 @@ lbl_for_1_start:
     move.w #0,0(a0,d0.w)
     moveq #1,d0
     add.w d0,(_local_i,a6)
-    bra lbl_for_1_start
+    bra lbl_for_10_start
 
     ;  next 
-lbl_for_1_end:
+lbl_for_10_end:
 
     ;  sprite_table[79].size_link = 0 ' Ultimo sprite desenhado deve apontar para o primeiro
     move.w #0,(_global_sprite_table+((79*8)+2))
@@ -422,10 +2747,10 @@ lbl_for_1_end:
     ;  for i=0 to 448
     moveq #0,d0
     move.w d0,(_local_i,a6)
-lbl_for_2_start:
+lbl_for_11_start:
     move.w (_local_i,a6),d0
     cmp.w #448,d0
-    beq lbl_for_2_end
+    beq lbl_for_11_end
 
     ;  H_scroll_buff[i] = 0
     move.w (_local_i,a6),d0
@@ -434,10 +2759,10 @@ lbl_for_2_start:
     move.w #0,0(a0,d0.w)
     moveq #1,d0
     add.w d0,(_local_i,a6)
-    bra lbl_for_2_start
+    bra lbl_for_11_start
 
     ;  next 
-lbl_for_2_end:
+lbl_for_11_end:
 
     ;  vdp_set_config(addressof(VDP_Std_Reg_init)) ' Envia configuracao padrao pro VDP
     move.l #VDP_Std_Reg_init,-(a7)
@@ -675,7 +3000,8 @@ _local_jp set 8
     move.w (_local_jp,a6),D1
 
     ;_asm_block #__
-    	move.l  #$A10003,A0
+    	moveq #0,D0
+    move.l  #$A10003,A0
     add.w   D1,D1
 	add.w   D1,A0	
 	move.b  #$40,6(a0);(0xA10009)
@@ -694,9 +3020,9 @@ _local_jp set 8
 	lsl.b	#$2,d1		
 	move.b	#$40,(a0)
 	or.b	d1,d0		
-	move.b  (A0),D1
+	move.b  (a0),D1
 	move.b  #0,(A0)
-	andi.w	#$0F, d1
+	ori.w	#$FFF0, d1
 	lsl.w	#8, d1
 	or.w    D1,D0
 	not.w   d0
@@ -1065,10 +3391,10 @@ _local__list_ set -2
     ; for _list_ = 0 to 80
     moveq #0,d0
     move.w d0,(_local__list_,a6)
-lbl_for_3_start:
+lbl_for_12_start:
     move.w (_local__list_,a6),d0
     cmp.w #80,d0
-    beq lbl_for_3_end
+    beq lbl_for_12_end
 
     ; sprite_table[ _list_ ].size_link = (sprite_table[_list_].size_link AND &HFF00) OR (_list_ +1)
     move.w (_local__list_,a6),d0
@@ -1085,10 +3411,10 @@ lbl_for_3_start:
     move.w d2,2(a0,d0.w)
     moveq #1,d0
     add.w d0,(_local__list_,a6)
-    bra lbl_for_3_start
+    bra lbl_for_12_start
 
     ; next
-lbl_for_3_end:
+lbl_for_12_end:
 
     ; sprite_table[79].size_link = (sprite_table[79].size_link AND &HFF00) 'Ultimo Sprite deve apontar para o primeiro
     move.w (_global_sprite_table+((79*8)+2)),d0
@@ -1587,1097 +3913,70 @@ _local_nframes set 8
 
     ;end sub
 
-    ;sub print_init()
-print_init:
-
-    ;load_tiles_DMA(addressof(font_lbl_prtn),256,0) ' Carrega a fonte na Vram
-    move.l #0,-(a7)
-    move.w #256,-(a7)
-    move.l #font_lbl_prtn,-(a7)
-    bsr load_tiles_DMA
-    lea 10(a7),a7
-
-    ;_print_cursor = 0
-    move.w #0,_global__print_cursor
-
-    ;_print_plane = 0
-    move.w #0,_global__print_plane
-
-    ;_print_pallet = 0
-    move.w #0,_global__print_pallet
-    rts
-
-    ;end sub
-
-    ;sub set_cursor_position(byval _print_cx_p as integer, byval _print_cy_p as integer)
-set_cursor_position:
-    link a6,#-0
-; byval _local__print_cx_p as word
-_local__print_cx_p set 8
-; byval _local__print_cy_p as word
-_local__print_cy_p set 10
-
-    ;_print_cursor = (_print_cx_p and 63) + ((_print_cy_p and 31) * 64) 
-    move.w (_local__print_cx_p,a6),d0
-    and.w #63,d0
-    move.w (_local__print_cy_p,a6),d1
-    and.w #31,d1
-    lsl.w #6,d1
-    add.w d1,d0
-    move.w d0,_global__print_cursor
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub set_text_plane(byval _print_plane_text as integer)
-set_text_plane:
-    link a6,#-0
-; byval _local__print_plane_text as word
-_local__print_plane_text set 8
-
-    ;_print_plane = _print_plane_text
-    move.w (_local__print_plane_text,a6),_global__print_plane
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub set_text_pal(byval _print_pal_set as integer)
-set_text_pal:
-    link a6,#-0
-; byval _local__print_pal_set as word
-_local__print_pal_set set 8
-
-    ;_print_pallet = _print_pal_set
-    move.w (_local__print_pal_set,a6),_global__print_pallet
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub print(byval _print_string as long)
-print:
-;  dim char as integer = peek(  _print_string as byte)
-_local_char set -2
-    link a6,#-2
-; byval _local__print_string as long
-_local__print_string set 8
-    move.l (_local__print_string,a6),a0
-    moveq #0,d0
-    move.b (a0),d0
-    move.w d0,(_local_char,a6)
-
-    ;  while(char<>0)
-lbl_while_start_2:
-    move.w (_local_char,a6),d0
-    tst.w d0
-    sne d0
-    and.w #$01,d0
-    dbra d0,lbl_while_true_2
-    bra lbl_while_false_2
-lbl_while_true_2:
-
-    ;  draw_tile(char OR _print_pallet, _print_cursor AND 63 , (_print_cursor / 64) ,_print_plane)
-    move.w _global__print_plane,-(a7)
-    move.w _global__print_cursor,d0
-    lsr.w #6,d0
-    move.w d0,-(a7)
-    move.w _global__print_cursor,d0
-    and.w #63,d0
-    move.w d0,-(a7)
-    move.w (_local_char,a6),d0
-    or.w _global__print_pallet,d0
-    move.w d0,-(a7)
-    bsr draw_tile
-    addq #8,a7
-
-    ;  _print_string +=1
-    moveq #1,d0
-    add.l d0,(_local__print_string,a6)
-
-    ;  _print_cursor +=1
-    moveq #1,d0
-    add.w d0,_global__print_cursor
-
-    ;  if _print_cursor > (64*32) then _print_cursor = 0
-    move.w _global__print_cursor,d0
-    cmp.w #(64*32),d0
-    shi d0
-    and.w #$01,d0
-    dbra d0,lbl_if_true_3
-    bra lbl_if_false_3
-lbl_if_true_3:
-
-    ;  if _print_cursor > (64*32) then _print_cursor = 0
-    move.w #0,_global__print_cursor
-lbl_if_false_3:
-
-    ;  char = peek(  _print_string as byte)
-    move.l (_local__print_string,a6),a0
-    moveq #0,d0
-    move.b (a0),d0
-    move.w d0,(_local_char,a6)
-    bra lbl_while_start_2
-
-    ;  end while
-lbl_while_false_2:
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub println(byval _print_string as long)
-println:
-;  dim char as integer = peek(  _print_string as byte)
-_local_char set -2
-    link a6,#-2
-; byval _local__print_string as long
-_local__print_string set 8
-    move.l (_local__print_string,a6),a0
-    moveq #0,d0
-    move.b (a0),d0
-    move.w d0,(_local_char,a6)
-
-    ;  while(char<>0)
-lbl_while_start_3:
-    move.w (_local_char,a6),d0
-    tst.w d0
-    sne d0
-    and.w #$01,d0
-    dbra d0,lbl_while_true_3
-    bra lbl_while_false_3
-lbl_while_true_3:
-
-    ;  draw_tile(char OR _print_pallet, _print_cursor AND 63 , (_print_cursor / 64) ,_print_plane)
-    move.w _global__print_plane,-(a7)
-    move.w _global__print_cursor,d0
-    lsr.w #6,d0
-    move.w d0,-(a7)
-    move.w _global__print_cursor,d0
-    and.w #63,d0
-    move.w d0,-(a7)
-    move.w (_local_char,a6),d0
-    or.w _global__print_pallet,d0
-    move.w d0,-(a7)
-    bsr draw_tile
-    addq #8,a7
-
-    ;  _print_string +=1
-    moveq #1,d0
-    add.l d0,(_local__print_string,a6)
-
-    ;  _print_cursor +=1
-    moveq #1,d0
-    add.w d0,_global__print_cursor
-
-    ;  if _print_cursor > (64*32) then _print_cursor = 0
-    move.w _global__print_cursor,d0
-    cmp.w #(64*32),d0
-    shi d0
-    and.w #$01,d0
-    dbra d0,lbl_if_true_4
-    bra lbl_if_false_4
-lbl_if_true_4:
-
-    ;  if _print_cursor > (64*32) then _print_cursor = 0
-    move.w #0,_global__print_cursor
-lbl_if_false_4:
-
-    ;  char = peek(  _print_string as byte)
-    move.l (_local__print_string,a6),a0
-    moveq #0,d0
-    move.b (a0),d0
-    move.w d0,(_local_char,a6)
-    bra lbl_while_start_3
-
-    ;  end while
-lbl_while_false_3:
-
-    ;  _print_cursor += 64 - (_print_cursor and 63) 
-    move.w _global__print_cursor,d1
-    and.w #63,d1
-    moveq #64,d0
-    sub.w d1,d0
-    add.w d0,_global__print_cursor
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub print_var(byval _print_val as integer)
-print_var:
-; dim flag_prnt as integer = 0
-_local_flag_prnt set -2
-; dim div_f as integer = 10000
-_local_div_f set -4
-; dim pars_ as integer
-_local_pars_ set -6
-    link a6,#-6
-; byval _local__print_val as word
-_local__print_val set 8
-
-    ; if _print_val = 0 then
-    move.w (_local__print_val,a6),d0
-    tst.w d0
-    seq d0
-    and.w #$01,d0
-    dbra d0,lbl_if_true_5
-    bra lbl_if_false_5
-lbl_if_true_5:
-
-    ; print("0") : return
-    move.l #const_string_9_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ; print("0") : return
-    unlk a6 
-    rts
-    bra lbl_if_end_5
-lbl_if_false_5:
-lbl_if_end_5:
-    move.w #0,(_local_flag_prnt,a6)
-    move.w #10000,(_local_div_f,a6)
-
-    ; while(div_f)
-lbl_while_start_4:
-    tst.w (_local_div_f,a6)
-    bne lbl_while_true_4
-    bra lbl_while_false_4
-lbl_while_true_4:
-
-    ; pars_ = _print_val / div_f
-    moveq #0,d0
-    move.w (_local__print_val,a6),d0
-    divu (_local_div_f,a6),d0
-    move.w d0,(_local_pars_,a6)
-
-    ; if pars_ OR flag_prnt then
-    move.w (_local_pars_,a6),d0
-    or.w (_local_flag_prnt,a6),d0
-    dbra d0,lbl_if_true_6
-    bra lbl_if_false_6
-lbl_if_true_6:
-
-    ; flag_prnt = true
-    move.w #1,(_local_flag_prnt,a6)
-
-    ; draw_tile(((pars_+ &H30) OR _print_pallet), _print_cursor AND 63 , (_print_cursor / 64) ,_print_plane)
-    move.w _global__print_plane,-(a7)
-    move.w _global__print_cursor,d0
-    lsr.w #6,d0
-    move.w d0,-(a7)
-    move.w _global__print_cursor,d0
-    and.w #63,d0
-    move.w d0,-(a7)
-    move.w (_local_pars_,a6),d0
-    add.w #$30,d0
-    or.w _global__print_pallet,d0
-    move.w d0,-(a7)
-    bsr draw_tile
-    addq #8,a7
-
-    ; _print_cursor +=1
-    moveq #1,d0
-    add.w d0,_global__print_cursor
-
-    ; if _print_cursor > (64*32) then _print_cursor = 0
-    move.w _global__print_cursor,d0
-    cmp.w #(64*32),d0
-    shi d0
-    and.w #$01,d0
-    dbra d0,lbl_if_true_7
-    bra lbl_if_false_7
-lbl_if_true_7:
-
-    ; if _print_cursor > (64*32) then _print_cursor = 0
-    move.w #0,_global__print_cursor
-lbl_if_false_7:
-    bra lbl_if_end_6
-lbl_if_false_6:
-lbl_if_end_6:
-
-    ; _print_val -= pars_ * div_f
-    move.w (_local_pars_,a6),d0
-    mulu (_local_div_f,a6),d0
-    sub.w d0,(_local__print_val,a6)
-
-    ; div_f = div_f / 10
-    moveq #0,d0
-    move.w (_local_div_f,a6),d0
-    divu #10,d0
-    move.w d0,(_local_div_f,a6)
-    bra lbl_while_start_4
-
-    ; wend
-lbl_while_false_4:
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub print_signed(byval _print_val as signed integer)
-print_signed:
-    link a6,#-0
-; byval _local__print_val as word
-_local__print_val set 8
-
-    ; if _unsigned(_print_val > 32768) then 'Negativo
-    move.w (_local__print_val,a6),d0
-    cmp.w #32768,d0
-    shi d0
-    and.w #$01,d0
-    dbra d0,lbl_if_true_8
-    bra lbl_if_false_8
-lbl_if_true_8:
-
-    ; print("-")
-    move.l #const_string_10_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ; print_var( (~_print_val) +1 )
-    move.w (_local__print_val,a6),d0
-    not.w d0
-    addq #1,d0
-    move.w d0,-(a7)
-    bsr print_var
-    addq #2,a7
-    bra lbl_if_end_8
-lbl_if_false_8:
-
-    ; else 'Positivo
-
-    ; print("+")
-    move.l #const_string_11_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ; print_var( _print_val )
-    move.w (_local__print_val,a6),-(a7)
-    bsr print_var
-    addq #2,a7
-lbl_if_end_8:
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub print_hex(byval _print_val as long)
-print_hex:
-;  dim _parse_bf[9] as byte ' String local que vai armazenar o valor do Hex convertido para string
-_local__parse_bf set -10
-; Auto Declaracao variavel ->   for k = 0 to 8
-_local_k set -12
-    link a6,#-12
-; byval _local__print_val as long
-_local__print_val set 8
-
-    ;  for k = 0 to 8
-    moveq #0,d0
-    move.w d0,(_local_k,a6)
-lbl_for_4_start:
-    move.w (_local_k,a6),d0
-    cmp.w #8,d0
-    beq lbl_for_4_end
-
-    ;  _parse_bf[7-k] = _long( (_print_val AND (&hF << k*4))>>( k*4) )
-    moveq #7,d0
-    sub.w (_local_k,a6),d0
-    add.w #_local__parse_bf,d0
-    moveq #0,d2
-    move.w (_local_k,a6),d2
-    add.l d2,d2
-    add.l d2,d2
-    moveq #$F,d1
-    lsl.l d2,d1
-    and.l (_local__print_val,a6),d1
-    moveq #0,d2
-    move.w (_local_k,a6),d2
-    add.l d2,d2
-    add.l d2,d2
-    lsr.l d2,d1
-    move.b d1,0(a6,d0.w)
-
-    ;  if _byte(_parse_bf[7-k] > 9) then _parse_bf[7-k] += _char("7") else _parse_bf[7-k] += _char("0") 
-    moveq #7,d0
-    sub.w (_local_k,a6),d0
-    add.w #_local__parse_bf,d0
-    move.b 0(a6,d0.w),d1
-    cmp.b #9,d1
-    shi d1
-    and.b #$01,d1
-    tst.b d1
-    bne lbl_if_true_9
-    bra lbl_if_false_9
-lbl_if_true_9:
-
-    ;  if _byte(_parse_bf[7-k] > 9) then _parse_bf[7-k] += _char("7") else _parse_bf[7-k] += _char("0") 
-    moveq #7,d0
-    sub.w (_local_k,a6),d0
-    add.w #_local__parse_bf,d0
-    move.b #'7',d1
-    add.b d1,0(a6,d0.w)
-    bra lbl_if_end_9
-lbl_if_false_9:
-
-    ;  if _byte(_parse_bf[7-k] > 9) then _parse_bf[7-k] += _char("7") else _parse_bf[7-k] += _char("0") 
-    moveq #7,d0
-    sub.w (_local_k,a6),d0
-    add.w #_local__parse_bf,d0
-    move.b #'0',d1
-    add.b d1,0(a6,d0.w)
-lbl_if_end_9:
-    moveq #1,d0
-    add.w d0,(_local_k,a6)
-    bra lbl_for_4_start
-
-    ;  next k 
-lbl_for_4_end:
-
-    ;  _parse_bf[8] = 0 'Caractere Null - Fim de string
-    move.b #0,(_local__parse_bf+(8<<0),a6)
-
-    ;  print("0x")
-    move.l #const_string_12_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ;  print(addressof(_parse_bf))
-    move.l a6,d0
-    add.l #_local__parse_bf,d0
-    move.l d0,-(a7)
-    bsr print
-    addq #4,a7
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub print_fixed(byval _print_val as fixed)
-print_fixed:
-    link a6,#-0
-; byval _local__print_val as word
-_local__print_val set 8
-
-    ;  print_var(_print_val)
-    move.w (_local__print_val,a6),d0
-    lsr.w #7,d0
-    move.w d0,-(a7)
-    bsr print_var
-    addq #2,a7
-
-    ;  print(".")
-    move.l #const_string_13_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ;  _print_val = ( (_print_val and &H7F)<<7)  * 0.78125
-    move.w (_local__print_val,a6),d0
-    and.w #$7F,d0
-    lsl.w #7,d0
-    mulu #(100),d0
-    lsr.l #7,d0
-    move.w d0,(_local__print_val,a6)
-
-    ;  if _fixed(_print_val < 10) then print("0") 
-    move.w (_local__print_val,a6),d0
-    cmp.w #(1280),d0
-    scs d0
-    and.w #$01,d0
-    dbra d0,lbl_if_true_10
-    bra lbl_if_false_10
-lbl_if_true_10:
-
-    ;  if _fixed(_print_val < 10) then print("0") 
-    move.l #const_string_14_,-(a7)
-    bsr print
-    addq #4,a7
-lbl_if_false_10:
-
-    ;  print_var( _print_val)  
-    move.w (_local__print_val,a6),d0
-    lsr.w #7,d0
-    move.w d0,-(a7)
-    bsr print_var
-    addq #2,a7
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub print_signed_fixed(byval _print_val as fixed)  
-print_signed_fixed:
-    link a6,#-0
-; byval _local__print_val as word
-_local__print_val set 8
-
-    ;  if _unsigned(_print_val > 255) then 'Negativo
-    move.w (_local__print_val,a6),d0
-    lsr.w #7,d0
-    cmp.w #255,d0
-    shi d0
-    and.w #$01,d0
-    dbra d0,lbl_if_true_11
-    bra lbl_if_false_11
-lbl_if_true_11:
-
-    ;  print("-")
-    move.l #const_string_15_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ;  print_fixed( (~(_print_val-0.01)) )
-    move.w (_local__print_val,a6),d0
-    sub.w #(1),d0
-    not.w d0
-    move.w d0,-(a7)
-    bsr print_fixed
-    addq #2,a7
-    bra lbl_if_end_11
-lbl_if_false_11:
-
-    ;  else 'Positivo
-
-    ;  print("+")
-    move.l #const_string_16_,-(a7)
-    bsr print
-    addq #4,a7
-
-    ;  print_fixed( _print_val )
-    move.w (_local__print_val,a6),-(a7)
-    bsr print_fixed
-    addq #2,a7
-lbl_if_end_11:
-    unlk a6 
-    rts
-
-    ; end sub
-
-    ;sub dma_Queue_init(byval __size__ as integer)
-dma_Queue_init:
-; Auto Declaracao variavel ->  for loc_i = 0 to __size__
-_local_loc_i set -2
-    link a6,#-2
-; byval _local___size__ as word
-_local___size__ set 8
-
-    ; __dma_queue_lenght__ = 0
-    move.w #0,_global___dma_queue_lenght__
-
-    ; __dma_queue_max_lenght__ = __size__
-    move.w (_local___size__,a6),_global___dma_queue_max_lenght__
-
-    ; __DMA_queue_buff_addr__ = ram_pointer
-    move.l _global_ram_pointer,_global___DMA_queue_buff_addr__
-
-    ; ram_pointer += __size__ << 4
-    moveq #0,d0
-    move.w (_local___size__,a6),d0
-    lsl.l #4,d0
-    add.l d0,_global_ram_pointer
-
-    ; for loc_i = 0 to __size__
-    moveq #0,d0
-    move.w d0,(_local_loc_i,a6)
-lbl_for_5_start:
-    move.w (_local_loc_i,a6),d0
-    cmp.w (_local___size__,a6),d0
-    beq lbl_for_5_end
-
-    ;  poke(&h94009300 as long, (__DMA_queue_buff_addr__ + (loc_i <<4))   )
-    moveq #0,d0
-    move.w (_local_loc_i,a6),d0
-    lsl.l #4,d0
-    add.l _global___DMA_queue_buff_addr__,d0
-    move.l d0,a0
-    move.l #$94009300,(a0)
-
-    ;  poke(&h97009600 as long, (__DMA_queue_buff_addr__ + (loc_i <<4)+4) )
-    moveq #0,d0
-    move.w (_local_loc_i,a6),d0
-    lsl.l #4,d0
-    addq #4,d0
-    add.l _global___DMA_queue_buff_addr__,d0
-    move.l d0,a0
-    move.l #$97009600,(a0)
-
-    ;  poke(&h95008114 as long, (__DMA_queue_buff_addr__ + (loc_i <<4)+8) )
-    moveq #0,d0
-    move.w (_local_loc_i,a6),d0
-    lsl.l #4,d0
-    addq #8,d0
-    add.l _global___DMA_queue_buff_addr__,d0
-    move.l d0,a0
-    move.l #$95008114,(a0)
-    moveq #1,d0
-    add.w d0,(_local_loc_i,a6)
-    bra lbl_for_5_start
-
-    ; next
-lbl_for_5_end:
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub dma_add_Queue(byval endereco_tiles as long, byval N_tiles as integer, byval end_dest as long)
-dma_add_Queue:
-    link a6,#-0
-; byval _local_endereco_tiles as long
-_local_endereco_tiles set 8
-; byval _local_N_tiles as word
-_local_N_tiles set 12
-; byval _local_end_dest as long
-_local_end_dest set 14
-
-    ; if ((__dma_queue_lenght__+2) > __dma_queue_max_lenght__) then return 'Buffer Overflow
-    move.w _global___dma_queue_lenght__,d0
-    addq #2,d0
-    cmp.w _global___dma_queue_max_lenght__,d0
-    shi d0
-    and.w #$01,d0
-    dbra d0,lbl_if_true_12
-    bra lbl_if_false_12
-lbl_if_true_12:
-
-    ; if ((__dma_queue_lenght__+2) > __dma_queue_max_lenght__) then return 'Buffer Overflow
-    unlk a6 
-    rts
-lbl_if_false_12:
-
-    ; push((__DMA_queue_buff_addr__ + (__dma_queue_lenght__ <<4))+10 as long, "A0")
-    moveq #0,d0
-    move.w _global___dma_queue_lenght__,d0
-    lsl.l #4,d0
-    add.l _global___DMA_queue_buff_addr__,d0
-    add.l #10,d0
-    move.l d0,A0
-
-    ; push(endereco_tiles as long,"D0")
-    move.l (_local_endereco_tiles,a6),D0
-
-    ; push(N_tiles as word,"D1")
-    move.w (_local_N_tiles,a6),D1
-
-    ; push(end_dest as long,"D2")
-    move.l (_local_end_dest,a6),D2
-
-    ;_asm_block #__
-     lsr.l #1,D0   ;Endereco   fonte  pra Words
- lsl.w #4,D1   ;No Tiles copiados pra Words
- lsl.w #5,D2   ;Ender. dest.Tiles pra Bytes
- moveq #0,D3
- sub.w D1,D3
- sub.w D0,D3
- bcs.s @ex_2p_DMAQ
- bra @ex_DMAQ
- @ex_DMAQ:
- bsr @executa_DMAQ
- bra @fimQ
- @ex_2p_DMAQ:
- add.w D1,D3    
- movem.w D1-D2,-(A7)
- move.w D3,D1     
- bsr @executa_DMAQ
- movem.w (A7)+,D1-D2 
- sub.w D3,D1   
- add.l D3,D0   
- add.w D3,D3   
- add.w D3,D2   
- bsr.s @executa_DMAQ
- bra @fimQ
- @executa_DMAQ:
- movep.l D0,-7(A0)
- movep.w D1,-9(A0)	
- lsl.l #2,D2
- lsr.w #2,D2
- swap D2
- and.w #$3,D2
- or.l #$40000080,D2
- move.w      D2,2(A0)
- swap D2
- move.w      D2,(A0)
- adda       #16,A0
- moveq       #1,D4
- add.w     D4,_global___dma_queue_lenght__
- rts
- @fimQ: 
-
-
-    ;__# _asm_block_end
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub dma_CRAM_add_Queue(byval endereco_pal as long, byval N_cores as integer, byval paleta_dest as long)
-dma_CRAM_add_Queue:
-    link a6,#-0
-; byval _local_endereco_pal as long
-_local_endereco_pal set 8
-; byval _local_N_cores as word
-_local_N_cores set 12
-; byval _local_paleta_dest as long
-_local_paleta_dest set 14
-
-    ; if ((__dma_queue_lenght__+2) > __dma_queue_max_lenght__) then return 'Buffer Overflow
-    move.w _global___dma_queue_lenght__,d0
-    addq #2,d0
-    cmp.w _global___dma_queue_max_lenght__,d0
-    shi d0
-    and.w #$01,d0
-    dbra d0,lbl_if_true_13
-    bra lbl_if_false_13
-lbl_if_true_13:
-
-    ; if ((__dma_queue_lenght__+2) > __dma_queue_max_lenght__) then return 'Buffer Overflow
-    unlk a6 
-    rts
-lbl_if_false_13:
-
-    ; push((__DMA_queue_buff_addr__ + (__dma_queue_lenght__ <<4))+10 as long, "A0")
-    moveq #0,d0
-    move.w _global___dma_queue_lenght__,d0
-    lsl.l #4,d0
-    add.l _global___DMA_queue_buff_addr__,d0
-    add.l #10,d0
-    move.l d0,A0
-
-    ; push(endereco_pal as long, "D0")
-    move.l (_local_endereco_pal,a6),D0
-
-    ; push(N_cores as word, "D1")
-    move.w (_local_N_cores,a6),D1
-
-    ; push(paleta_dest as long, "D2")
-    move.l (_local_paleta_dest,a6),D2
-
-    ;_asm_block #__
-     lsr.l #1,D0  
- lsl.w #5,D2  
- moveq #0,D3
- sub.w D1,D3
- sub.w D0,D3
- bcs.s @ex_2p_DMAQ_cram
- bra @ex_DMAQ_cram
- @ex_DMAQ_cram:
- bsr @executa_DMAQ_cram
- bra @fim_cramQ
- @ex_2p_DMAQ_cram:
- add.w D1,D3      
- movem.w D1-D2,-(A7)
- move.w D3,D1     
- bsr @executa_DMAQ_cram
- movem.w (A7)+,D1-D2 
- sub.w D3,D1   
- add.l D3,D0   
- add.w D3,D3   
- add.w D3,D2   
- bsr.s @executa_DMAQ_cram
- bra @fim_cramQ
- @executa_DMAQ_cram:
- movep.l D0,-7(A0)
- movep.w D1,-9(A0)	
- swap D2
- or.l #$C0000080,D2
- move.w      D2,2(A0)
- swap D2
- move.w      D2,(A0)
- adda       #16,A0
- moveq       #1,D4
- add.w     D4,_global___dma_queue_lenght__
- rts
- @fim_cramQ: 
-
-
-    ;__# _asm_block_end
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub dma_CRAM_add_Queue_128ksafe(byval endereco_pal as long, byval N_cores as integer, byval paleta_dest as long)
-dma_CRAM_add_Queue_128ksafe:
-    link a6,#-0
-; byval _local_endereco_pal as long
-_local_endereco_pal set 8
-; byval _local_N_cores as word
-_local_N_cores set 12
-; byval _local_paleta_dest as long
-_local_paleta_dest set 14
-
-    ; if ((__dma_queue_lenght__+1) > __dma_queue_max_lenght__) then return 'Buffer Overflow
-    move.w _global___dma_queue_lenght__,d0
-    addq #1,d0
-    cmp.w _global___dma_queue_max_lenght__,d0
-    shi d0
-    and.w #$01,d0
-    dbra d0,lbl_if_true_14
-    bra lbl_if_false_14
-lbl_if_true_14:
-
-    ; if ((__dma_queue_lenght__+1) > __dma_queue_max_lenght__) then return 'Buffer Overflow
-    unlk a6 
-    rts
-lbl_if_false_14:
-
-    ; push((__DMA_queue_buff_addr__ + (__dma_queue_lenght__ <<4))+10 as long, "A0")
-    moveq #0,d0
-    move.w _global___dma_queue_lenght__,d0
-    lsl.l #4,d0
-    add.l _global___DMA_queue_buff_addr__,d0
-    add.l #10,d0
-    move.l d0,A0
-
-    ; push(endereco_pal as long, "D0")
-    move.l (_local_endereco_pal,a6),D0
-
-    ; push(N_cores as word, "D1")
-    move.w (_local_N_cores,a6),D1
-
-    ; push(paleta_dest as long, "D2")
-    move.l (_local_paleta_dest,a6),D2
-
-    ;_asm_block #__
-     lsr.l #1,D0  
- lsl.w #5,D2   
- movep.l D0,-7(A0)
- movep.w D1,-9(A0)	
- swap D2
- or.l #$C0000080,D2
- move.w      D2,2(A0)
- swap D2
- move.w      D2,(A0)
-
-
-    ;__# _asm_block_end
-
-    ; __dma_queue_lenght__+=1
-    moveq #1,d0
-    add.w d0,_global___dma_queue_lenght__
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub dma_add_Queue_128ksafe(byval __tiles_addr__ as long, byval __N_tiles__ as integer, byval __addr_dest__ as long)
-dma_add_Queue_128ksafe:
-    link a6,#-0
-; byval _local___tiles_addr__ as long
-_local___tiles_addr__ set 8
-; byval _local___N_tiles__ as word
-_local___N_tiles__ set 12
-; byval _local___addr_dest__ as long
-_local___addr_dest__ set 14
-
-    ; if ((__dma_queue_lenght__+1) > __dma_queue_max_lenght__) then return 'Buffer Overflow
-    move.w _global___dma_queue_lenght__,d0
-    addq #1,d0
-    cmp.w _global___dma_queue_max_lenght__,d0
-    shi d0
-    and.w #$01,d0
-    dbra d0,lbl_if_true_15
-    bra lbl_if_false_15
-lbl_if_true_15:
-
-    ; if ((__dma_queue_lenght__+1) > __dma_queue_max_lenght__) then return 'Buffer Overflow
-    unlk a6 
-    rts
-lbl_if_false_15:
-
-    ; push((__DMA_queue_buff_addr__ + (__dma_queue_lenght__ <<4))+10 as long, "A0")
-    moveq #0,d0
-    move.w _global___dma_queue_lenght__,d0
-    lsl.l #4,d0
-    add.l _global___DMA_queue_buff_addr__,d0
-    add.l #10,d0
-    move.l d0,A0
-
-    ; push(__tiles_addr__ as long,"D0")
-    move.l (_local___tiles_addr__,a6),D0
-
-    ; push(__N_tiles__ as word,"D1")
-    move.w (_local___N_tiles__,a6),D1
-
-    ; push(__addr_dest__ as long,"D2")
-    move.l (_local___addr_dest__,a6),D2
-
-    ;_asm_block #__
-     lsr.l #1,D0   
- lsl.w #4,D1   
- lsl.w #5,D2    
- movep.l D0,-7(A0)
- movep.w D1,-9(A0)
- lsl.l #2,D2
- lsr.w #2,D2
- swap D2
- and.w #$3,D2
- or.l #$40000080,D2
- move.w      D2,2(A0)
- swap D2
- move.w      D2,(A0)
-
-
-    ;__# _asm_block_end
-
-    ; __dma_queue_lenght__+=1
-    moveq #1,d0
-    add.w d0,_global___dma_queue_lenght__
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;sub DMA_Queue_Transfer()
-DMA_Queue_Transfer:
-; Auto Declaracao variavel ->  for __i__ = 0 to __dma_queue_lenght__
-_local___i__ set -2
-    link a6,#-2
-
-    ; if __dma_queue_lenght__ = 0 then return
-    move.w _global___dma_queue_lenght__,d0
-    tst.w d0
-    seq d0
-    and.w #$01,d0
-    dbra d0,lbl_if_true_16
-    bra lbl_if_false_16
-lbl_if_true_16:
-
-    ; if __dma_queue_lenght__ = 0 then return
-    unlk a6 
-    rts
-lbl_if_false_16:
-
-    ; push(__DMA_queue_buff_addr__  as long, "A1")
-    move.l _global___DMA_queue_buff_addr__,A1
-
-    ; push( &hC00004 as long, "A2")
-    lea $C00004,A2
-
-    ; for __i__ = 0 to __dma_queue_lenght__
-    moveq #0,d0
-    move.w d0,(_local___i__,a6)
-lbl_for_6_start:
-    move.w (_local___i__,a6),d0
-    cmp.w _global___dma_queue_lenght__,d0
-    beq lbl_for_6_end
-
-    ; _asm("move.l (A1)+,(A2)") ' Tamanho dos dados		
-    move.l (A1)+,(A2)
-
-    ; _asm("move.l (A1)+,(A2)") ' Endereco Fonte Up bytes
-    move.l (A1)+,(A2)
-
-    ; _asm("move.l (A1)+,(A2)") ' Endereco fonte low byte + endereco de Destino High Byte
-    move.l (A1)+,(A2)
-
-    ; _asm("move.w (A1)+,(A2)") ' trigger do DMA
-    move.w (A1)+,(A2)
-
-    ; _asm("addq      #2,A1")   ' alinha o vetor -> long data wide
-    addq      #2,A1
-    moveq #1,d0
-    add.w d0,(_local___i__,a6)
-    bra lbl_for_6_start
-
-    ; next
-lbl_for_6_end:
-
-    ; __dma_queue_lenght__ = 0 'Clear Queue 
-    move.w #0,_global___dma_queue_lenght__
-    unlk a6 
-    rts
-
-    ;end sub
-
-    ;function sen(byval __angle__ as integer) as signed fixed
-sen:
-    link a6,#-0
-; byval _local___angle__ as word
-_local___angle__ set 8
-    moveq #0,d0
-    move.w (_local___angle__,a6),d0
-    and.l #511,d0
-    add.l d0,d0
-    add.l #table_sin_fixed__,d0
-    move.l d0,a0
-    move.w (a0),d0
-
-    ;return peek(addressof(table_sin_fixed__) + ((__angle__ mod 512)<<1) as integer)
-    move.w d0,d7
-    unlk a6 
-    rts
-
-    ;end function
-
-    ;function cos(byval __angle__ as integer) as signed fixed
-cos:
-    link a6,#-0
-; byval _local___angle__ as word
-_local___angle__ set 8
-    moveq #0,d0
-    move.w (_local___angle__,a6),d0
-    and.l #511,d0
-    add.l d0,d0
-    add.l #table_cos_fixed__,d0
-    move.l d0,a0
-    move.w (a0),d0
-
-    ;return peek(addressof(table_cos_fixed__) + ((__angle__ mod 512)<<1) as integer)
-    move.w d0,d7
-    unlk a6 
-    rts
-
-    ;end function
-
-    ;function tan(byval __angle__ as integer) as signed fixed
-tan:
-    link a6,#-0
-; byval _local___angle__ as word
-_local___angle__ set 8
-    moveq #0,d0
-    move.w (_local___angle__,a6),d0
-    and.l #511,d0
-    add.l d0,d0
-    add.l #table_tan_fixed__,d0
-    move.l d0,a0
-    move.w (a0),d0
-
-    ;return peek(addressof(table_tan_fixed__) + ((__angle__ mod 512)<<1) as integer)
-    move.w d0,d7
-    unlk a6 
-    rts
-
-    ;end function
+    ;imports"\assets\tile_sets\numbers.bin"
     even
-const_string_0_:
-    dc.b "  Por enquanto ta tudo tranquilo  o.O  ",0
+numeros:
+    incbin "C:\workbench\Alcatech_NextBasic_Bin\assets\tile_sets\numbers.bin" 
+
+    ;imports"\assets\tile_sets\tilepal1.bin"
     even
-const_string_1_:
-    dc.b "Seno  : ",0
+tiles:
+    incbin "C:\workbench\Alcatech_NextBasic_Bin\assets\tile_sets\tilepal1.bin" 
+
+    ;imports"\assets\tile_sets\tilepal0.bin"	
     even
-const_string_2_:
-    dc.b "     ",0
+    incbin "C:\workbench\Alcatech_NextBasic_Bin\assets\tile_sets\tilepal0.bin" 
+
+    ;imports"\assets\sprite_sheets\dave.bin"
     even
-const_string_3_:
-    dc.b "Coseno: ",0
+dave_data:
+    incbin "C:\workbench\Alcatech_NextBasic_Bin\assets\sprite_sheets\dave.bin" 
+
+    ;imports"\assets\tile_maps\level1.bin"
     even
-const_string_4_:
-    dc.b "     ",0
+levels_:
+    incbin "C:\workbench\Alcatech_NextBasic_Bin\assets\tile_maps\level1.bin" 
+
+    ;imports"\assets\tile_maps\level2.bin"
     even
-const_string_5_:
-    dc.b "Raio  : ",0
+    incbin "C:\workbench\Alcatech_NextBasic_Bin\assets\tile_maps\level2.bin" 
+
+    ;imports"\assets\tile_maps\level3.bin"
     even
-const_string_6_:
-    dc.b "     ",0
+    incbin "C:\workbench\Alcatech_NextBasic_Bin\assets\tile_maps\level3.bin" 
+
+    ;imports"\assets\tile_maps\level4.bin"
     even
-const_string_7_:
-    dc.b "Angulo: ",0
+    incbin "C:\workbench\Alcatech_NextBasic_Bin\assets\tile_maps\level4.bin" 
+
+    ;imports"\assets\tile_maps\level5.bin"
     even
-const_string_8_:
-    dc.b "     ",0
+    incbin "C:\workbench\Alcatech_NextBasic_Bin\assets\tile_maps\level5.bin" 
+
+    ;imports"\assets\tile_maps\level6.bin"
+    even
+    incbin "C:\workbench\Alcatech_NextBasic_Bin\assets\tile_maps\level6.bin" 
+
+    ;imports"\assets\tile_maps\level7.bin"
+    even
+    incbin "C:\workbench\Alcatech_NextBasic_Bin\assets\tile_maps\level7.bin" 
+
+    ;imports"\assets\tile_maps\level8.bin"
+    even
+    incbin "C:\workbench\Alcatech_NextBasic_Bin\assets\tile_maps\level8.bin" 
+
+    ;imports"\assets\tile_maps\level9.bin"
+    even
+    incbin "C:\workbench\Alcatech_NextBasic_Bin\assets\tile_maps\level9.bin" 
+
+    ;imports"\assets\tile_maps\level10.bin"
+    even
+    incbin "C:\workbench\Alcatech_NextBasic_Bin\assets\tile_maps\level10.bin" 
+
+    ;imports"\assets\colision_map\colision_maps.bin"
+    even
+colision_map:
+    incbin "C:\workbench\Alcatech_NextBasic_Bin\assets\colision_map\colision_maps.bin" 
     even
 VDP_std_Reg_init:
     dc.b $04
@@ -2701,320 +4000,15 @@ VDP_std_Reg_init:
     dc.b $00
     dc.b $00
     even
-const_string_9_:
-    dc.b "0",0
-    even
-const_string_10_:
-    dc.b "-",0
-    even
-const_string_11_:
-    dc.b "+",0
-    even
-const_string_12_:
-    dc.b "0x",0
-    even
-const_string_13_:
-    dc.b ".",0
-    even
-const_string_14_:
-    dc.b "0",0
-    even
-const_string_15_:
-    dc.b "-",0
-    even
-const_string_16_:
-    dc.b "+",0
-
-    ;imports "\system\font_msxBR_8x8.bin , -f , -e"
-    even
-font_lbl_prtn:
-    incbin "C:\workbench\Alcatech_NextBasic_Bin\compiler\system\font_msxbr_8x8.bin " 
-    even
-table_sin_fixed__:
-    dc.w 0,1,3,5,6,8,9,12,13,14,15,17,19,20,22,23,24,27,28,29,31,32,35,36,37,38,40,42,44,45,46,47,49,50,51,54,55,56,58,59,60,61,63,64,65,67,68,69,72,73,74,76,77,78,78,79,81,82,83,84,86,87,88,90,91,92,92,93,95,96,97,97,99,100,101,102,102,104,105,105,106,108,108,109,110,110,111,113
-    dc.w 113,114,114,115,115,116,116,118,118,119,119,120,120,122,122,122,123,123,123,124,124,124,125,125,125,125,127,127,127,127,127,127,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,127,127,127,127,127,127,125,125,125,125,124,124,124,123,123,123,122,122,122,120,120,119,119,118,118,116,116,115,115,114,114,113,113,111,110,110,109,109,108
-    dc.w 106,106,105,104,102,102,101,100,99,99,97,96,95,93,93,92,91,90,88,87,86,84,83,83,82,81,79,78,77,76,74,73,72,70,69,68,67,65,63,61,60,59,58,56,55,54,52,51,49,47,46,45,44,42,41,38,37,36,35,33,32,29,28,27,26,24,22,20,19,18,15,14,13,12,10,8,6,5,4,1
-    dc.w 0,-1,-3,-4,-6,-8,-9,-10,-13,-14,-15,-17,-18,-20,-22,-23,-24,-26,-28,-29,-31,-32,-33,-36,-37,-38,-40,-41,-42,-45,-46,-47,-49,-50,-51,-52,-54,-56,-58,-59,-60,-61,-63,-64,-65,-67,-68,-69,-70,-72,-73,-74,-76,-77,-78,-79,-81,-82,-83,-84,-86,-87,-88,-90,-90,-91,-92,-93,-95,-96,-97,-97,-99,-100,-101,-101,-102,-104,-105,-105,-106,-108,-108,-109,-110,-110,-111,-111
-    dc.w -113,-114,-114,-115,-115,-116,-116,-118,-118,-119,-119,-120,-120,-120,-122,-122,-123,-123,-123,-124,-124,-124,-124,-125,-125,-125,-125,-127,-127,-127,-127,-127,-127,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-127,-127,-127,-127,-127,-127,-125,-125,-125,-125,-124,-124,-124,-123,-123,-123,-122,-122,-122,-120,-120,-119,-119,-119,-118,-118,-116,-116,-115,-115,-114,-113,-113,-111,-111,-110,-109,-109,-108
-    dc.w -106,-106,-105,-104,-104,-102,-101,-100,-100,-99,-97,-96,-95,-95,-93,-92,-91,-90,-88,-87,-86,-86,-84,-83,-82,-81,-79,-78,-77,-76,-74,-73,-72,-70,-69,-68,-67,-65,-64,-63,-61,-59,-58,-56,-55,-54,-52,-51,-50,-49,-46,-45,-44,-42,-41,-40,-38,-36,-35,-33,-32,-31,-28,-27,-26,-24,-23,-20,-19,-18,-17,-15,-13,-12,-10,-9,-6,-5,-4,-3
-    even
-table_cos_fixed__:
-    dc.w 128,128,128,128,128,128,128,128,128,127,127,127,127,127,127,125,125,125,125,124,124,124,123,123,123,122,122,122,120,120,119,119,118,118,116,116,115,115,114,114,113,113,111,110,110,109,109,108,106,105,105,104,102,102,101,100,99,99,97,96,95,93,92,92,91,90,88,87,86,84,83,82,81,81,79,78,77,76,74,73,72,70,69,68,65,64,63,61
-    dc.w 60,59,58,56,55,54,52,50,49,47,46,45,44,42,40,38,37,36,35,33,31,29,28,27,26,23,22,20,19,18,15,14,13,12,9,8,6,5,4,1,0,-1,-3,-5,-6,-8,-9,-10,-13,-14,-15,-17,-19,-20,-22,-23,-24,-27,-28,-29,-31,-32,-35,-36,-37,-38,-40,-41,-44,-45,-46,-47,-49,-50,-51,-52,-55,-56,-58,-59,-60,-61,-63,-64,-65,-67,-68,-69
-    dc.w -70,-72,-73,-74,-76,-77,-78,-79,-81,-82,-83,-84,-86,-87,-88,-90,-91,-91,-92,-93,-95,-96,-97,-97,-99,-100,-101,-101,-102,-104,-105,-105,-106,-108,-108,-109,-110,-110,-111,-113,-113,-114,-114,-115,-115,-116,-116,-118,-118,-119,-119,-120,-120,-120,-122,-122,-123,-123,-123,-124,-124,-124,-125,-125,-125,-125,-125,-127,-127,-127,-127,-127,-127,-128,-128,-128,-128,-128,-128,-128
-    dc.w -128,-128,-128,-128,-128,-128,-128,-128,-128,-127,-127,-127,-127,-127,-127,-125,-125,-125,-125,-124,-124,-124,-123,-123,-123,-122,-122,-122,-120,-120,-119,-119,-118,-118,-118,-116,-116,-115,-114,-114,-113,-113,-111,-111,-110,-109,-109,-108,-106,-106,-105,-104,-104,-102,-101,-100,-100,-99,-97,-96,-95,-93,-93,-92,-91,-90,-88,-87,-86,-84,-84,-83,-82,-81,-79,-78,-77,-76,-74,-73,-72,-70,-69,-68,-67,-65,-64,-63
-    dc.w -60,-59,-58,-56,-55,-54,-52,-51,-50,-47,-46,-45,-44,-42,-41,-40,-37,-36,-35,-33,-32,-29,-28,-27,-26,-24,-22,-20,-19,-18,-17,-14,-13,-12,-10,-9,-6,-5,-4,-3,0,1,3,4,6,8,9,10,12,14,15,17,18,19,22,23,24,26,28,29,31,32,33,35,37,38,40,41,42,44,46,47,49,50,51,52,54,55,58,59,60,61,63,64,65,67,68,69
-    dc.w 70,72,73,74,76,77,78,79,81,82,83,84,86,87,88,90,90,91,92,93,95,96,96,97,99,100,101,101,102,104,104,105,106,108,108,109,110,110,111,111,113,114,114,115,115,116,116,118,118,119,119,120,120,120,122,122,123,123,123,124,124,124,124,125,125,125,125,127,127,127,127,127,127,128,128,128,128,128,128,128
-    even
-table_tan_fixed__:
-    dc.w 0,1,3,5,6,8,9,12,13,14,15,18,19,20,22,24,26,27,28,31,32,33,36,37,38,41,42,44,46,47,50,51,52,55,56,59,60,63,64,67,68,70,73,74,77,79,81,83,86,88,90,92,95,97,100,102,105,108,110,113,116,119,122,124,128,131,134,138,141,145,148,152,156,160,164,168,173,177,182,187,191,196,202,207,214,219,225,232,239,246,253,261,270,279,288,298,308,319,330,343,357,371,387,403,420,439,461,484
-    dc.w 508,536,567,602,640,684,732,790,856,934,1028,1142,1284,1466,1706,2042,2541,3360,4956,9439,32701,-11675,-5510,-3606,-2679,-2130,-1768,-1510,-1318,-1169,-1050,-952,-872,-803,-744,-692,-649,-609,-573,-543,-515,-489,-466,-444,-424,-406,-389,-374,-360,-346,-333,-321,-311,-300,-291,-280,-271,-264,-256,-248,-241,-233,-227,-220,-215,-209,-204,-197,-192,-187,-183,-178,-173,-169,-165,-160,-156,-152,-148,-146,-142,-138,-134,-132,-128,-125,-123,-119,-116,-114
-    dc.w -111,-108,-105,-102,-100,-97,-95,-93,-91,-88,-86,-83,-82,-79,-77,-76,-73,-70,-69,-67,-65,-63,-61,-59,-58,-55,-54,-51,-50,-47,-46,-45,-42,-41,-40,-37,-36,-35,-32,-31,-29,-27,-26,-24,-23,-20,-19,-18,-17,-14,-13,-12,-10,-8,-6,-5,-4,-1
-    dc.w 0,1,3,4,6,8,9,10,13,14,15,17,19,20,22,23,26,27,28,29,32,33,35,37,38,40,42,44,45,47,49,51,52,55,56,58,60,61,64,67,68,70,72,74,77,78,81,83,84,87,90,92,95,97,100,102,105,108,110,113,115,118,122,124,127,131,133,137,141,143,147,151,155,159,163,168,172,175,180,186,191,196,201,206,212,218,224,230,238,244,252,260,269,276,285,296,306,316,328,340,353,367,383,399,416,435
-    dc.w 456,479,503,530,561,594,631,673,722,777,841,916,1006,1115,1251,1423,1649,1961,2415,3145,4503,7922,32745,-15296,-6204,-3890,-2833,-2227,-1834,-1559,-1354,-1198,-1073,-972,-887,-817,-755,-703,-658,-617,-581,-549,-520,-494,-470,-448,-429,-410,-393,-378,-362,-349,-337,-324,-312,-302,-292,-283,-274,-265,-257,-250,-242,-236,-228,-221,-215,-210,-204,-198,-193,-188,-183,-179,-174,-170,-165,-161,-157,-154,-150,-146,-142,-140,-136,-132,-129,-125,-123
-    dc.w -120,-116,-114,-111,-109,-106,-104,-101,-99,-96,-93,-91,-88,-87,-84,-82,-79,-78,-76,-73,-72,-69,-67,-65,-63,-61,-59,-58,-55,-54,-52,-50,-49,-46,-45,-44,-41,-40,-38,-36,-35,-33,-31,-29,-28,-26,-24,-23,-22,-19,-18,-17,-15,-13,-12,-10,-9,-6,-5,-4,-3
-    even
-setas_cores:
-    dc.w $0000,$020E,$04A2,$0C42,$0000,$0000,$0000,$0000
+paletatile0:
+    dc.w $0000,$00A0,$0E22,$0400,$002C,$0006,$0EA2,$02CE
+    dc.w $0046,$0040,$0C0C,$0606,$0666,$0660,$0CEE,$00C0
+    dc.w $0000,$0000,$068E,$046A,$0268,$0EEE,$0888,$0AAA
+    dc.w $0CCC,$0666,$0444,$0222,$0246,$06AE,$04EE,$0024
+    dc.w $0000,$022C,$0ACE,$0E0A,$06AE,$0246,$08AE,$0060
+    dc.w $0666,$0EEE,$00C0,$0AAA,$08E8,$0A40,$0EA2,$0000
+    dc.w $0000,$00A0,$0EEE,$04EE,$04E4,$0444,$0000,$0000
     dc.w $0000,$0000,$0000,$0000,$0000,$0000,$0000,$0000
-    even
-setas_sprites:
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11122222
-    dc.l $11122222
-    dc.l $11122222
-    dc.l $11122233
-    dc.l $11122233
-    dc.l $11122233
-    dc.l $11122233
-    dc.l $11122233
-    dc.l $11122233
-    dc.l $11122233
-    dc.l $11122233
-    dc.l $11122233
-    dc.l $11122222
-    dc.l $11122222
-    dc.l $11122222
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111112
-    dc.l $11111112
-    dc.l $11111112
-    dc.l $11111112
-    dc.l $11111112
-    dc.l $11111112
-    dc.l $22222222
-    dc.l $22222222
-    dc.l $22222222
-    dc.l $33333333
-    dc.l $33333333
-    dc.l $33333333
-    dc.l $33333333
-    dc.l $33333333
-    dc.l $33333333
-    dc.l $33333333
-    dc.l $33333333
-    dc.l $33333333
-    dc.l $22222222
-    dc.l $22222222
-    dc.l $22222222
-    dc.l $11111112
-    dc.l $11111112
-    dc.l $11111112
-    dc.l $11111112
-    dc.l $11111112
-    dc.l $11111112
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $22111111
-    dc.l $22211111
-    dc.l $22221111
-    dc.l $22222111
-    dc.l $22222211
-    dc.l $22222221
-    dc.l $22322222
-    dc.l $22332222
-    dc.l $22333222
-    dc.l $33333322
-    dc.l $33333332
-    dc.l $33333333
-    dc.l $33333333
-    dc.l $33333333
-    dc.l $33333333
-    dc.l $33333333
-    dc.l $33333332
-    dc.l $33333322
-    dc.l $22333222
-    dc.l $22332222
-    dc.l $22322222
-    dc.l $22222221
-    dc.l $22222211
-    dc.l $22222111
-    dc.l $22221111
-    dc.l $22211111
-    dc.l $22111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $21111111
-    dc.l $22111111
-    dc.l $22211111
-    dc.l $22221111
-    dc.l $22222111
-    dc.l $32222211
-    dc.l $33222211
-    dc.l $32222211
-    dc.l $22222111
-    dc.l $22221111
-    dc.l $22211111
-    dc.l $22111111
-    dc.l $21111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111112
-    dc.l $11111122
-    dc.l $11111222
-    dc.l $11112222
-    dc.l $11122222
-    dc.l $11122222
-    dc.l $11122222
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111112
-    dc.l $11111122
-    dc.l $11111222
-    dc.l $11112222
-    dc.l $11122222
-    dc.l $11222223
-    dc.l $12222233
-    dc.l $22222333
-    dc.l $22223333
-    dc.l $22233333
-    dc.l $22333333
-    dc.l $23333333
-    dc.l $22223333
-    dc.l $22223333
-    dc.l $22223333
-    dc.l $12223333
-    dc.l $12223333
-    dc.l $12223333
-    dc.l $12223333
-    dc.l $12223333
-    dc.l $12223333
-    dc.l $12223333
-    dc.l $12223333
-    dc.l $12223333
-    dc.l $12222222
-    dc.l $12222222
-    dc.l $12222222
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $22111111
-    dc.l $22211111
-    dc.l $22221111
-    dc.l $22222111
-    dc.l $32222211
-    dc.l $33222221
-    dc.l $33322222
-    dc.l $33332222
-    dc.l $33333222
-    dc.l $33333322
-    dc.l $33333332
-    dc.l $33333333
-    dc.l $33333222
-    dc.l $33333222
-    dc.l $33333222
-    dc.l $33333222
-    dc.l $33333222
-    dc.l $33333222
-    dc.l $33333222
-    dc.l $33333222
-    dc.l $33333222
-    dc.l $33333222
-    dc.l $33333222
-    dc.l $33333222
-    dc.l $22222222
-    dc.l $22222222
-    dc.l $22222222
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $21111111
-    dc.l $22111111
-    dc.l $22211111
-    dc.l $22221111
-    dc.l $22222111
-    dc.l $22222211
-    dc.l $22222211
-    dc.l $22222211
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
-    dc.l $11111111
     even    
 isr_01_vector:
     rte
