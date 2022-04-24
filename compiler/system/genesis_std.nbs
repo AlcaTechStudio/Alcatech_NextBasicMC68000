@@ -377,6 +377,35 @@ sub load_cram_dma_128ksafe(byval endereco_pal as long, byval N_cores as integer,
 __# _asm_block_end
 end sub
 
+'carregar 16 cores no meio da tela
+sub load_cram_onscreen(byval endereco_pal as long, byval paleta_dest as long, byval raster_height as byte)
+push(&hC0000000+(paleta_dest<<16) as long, "D1")
+push( raster_height as byte, "D0")
+push(endereco_pal as long, "A0")
+_asm_block #__
+ lea $c00008,A2
+ lea $C00000,A1
+ move.l D1,$C00004
+ moveq    #7,d2
+
+ wait_hbl3:
+ cmp.b    (a2),d0
+ bne.s    wait_hbl3
+
+mm_reload_pal:
+ btst    #2,5(a1) ; $c00004  ;'Aguar do inicio do proximo Hblank
+ beq.s    mm_reload_pal
+ move.l    (a0)+,d1
+ move.l    d1,(a1)
+
+ wait_new_raster:           ;'Espera o fim do Hblank Atual (necessario as vezes)
+ btst    #2,5(a1) ; $c00004
+ bne.s    wait_new_raster
+
+ dbf    d2,mm_reload_pal
+__# _asm_block_end
+end sub
+
 ' Define o tile de um sprite
 sub set_sprite_gfx(byval sprite_idx as word, byval sprite_gfx_ini as word,byval sprite_pal as word)
   _asm_block #__
